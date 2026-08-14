@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>顧客顯示螢幕</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { 
+      font-family: 'Noto Sans TC', sans-serif; 
+      margin: 0; padding: 0; 
+      background: #f4f6f8; 
+      display: flex; flex-direction: column; 
+      height: 100vh; overflow: hidden; 
+    }
+    .header { 
+      background: #1976d2; color: white; 
+      padding: 15px; text-align: center; 
+      font-size: 20px; font-weight: bold; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      flex-shrink: 0; 
+    }
+    .content { 
+      flex: 1; padding: 15px; 
+      overflow-y: auto; 
+      display: flex; flex-direction: column; 
+    }
+    .empty-state { 
+      flex: 1; display: flex; 
+      flex-direction: column; justify-content: center; align-items: center; 
+      color: #b0bec5; 
+    }
+    .empty-icon { font-size: 60px; margin-bottom: 10px; opacity: 0.5; }
+    
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 10px; }
+    th { background: #eceff1; color: #555; padding: 10px; text-align: left; font-size: 16px; border-bottom: 2px solid #ddd; }
+    td { padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 18px; color: #333; }
+    .col-price { text-align: right; font-weight: bold; color: #1976d2; }
+    
+    .footer { 
+      background: #263238; color: white; 
+      padding: 15px 20px 55px 20px; 
+      display: flex; flex-direction: column; 
+      gap: 10px;
+      box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+      flex-shrink: 0; 
+    }
+    
+    .stats-row {
+      display: flex; justify-content: space-between; 
+      padding-bottom: 10px; border-bottom: 1px solid #455a64;
+    }
+    .stat-box { display: flex; flex-direction: column; align-items: center; }
+    .stat-label { font-size: 12px; color: #b0bec5; margin-bottom: 2px; }
+    .stat-value { font-size: 18px; font-weight: bold; color: #fff; font-family: monospace; }
+    
+    .total-row {
+      display: flex; justify-content: space-between; align-items: center; margin-top: 5px;
+    }
+    .total-label { font-size: 20px; color: #ffeb3b; font-weight: bold; }
+    .total-price { font-size: 42px; color: #ffeb3b; font-weight: bold; font-family: monospace; }
+    
+    .success-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(46, 125, 50, 0.98); display: none; justify-content: center; align-items: center; flex-direction: column; color: white; z-index: 999; }
+  </style>
+</head>
+<body>
+  <div class="header">購物清單 (<?= targetBranch ?>)</div>
+
+  <div class="content">
+    <div id="emptyState" class="empty-state">
+      <div class="empty-icon">🛒</div>
+      <div>等待同步中...</div>
+    </div>
+    <table id="itemTable" style="display:none;">
+      <thead><tr><th>商品</th><th style="width:15%;text-align:center;">數</th><th style="width:30%;text-align:right;">金額</th></tr></thead>
+      <tbody id="itemList"></tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-label">品項數量</div><div class="stat-value" id="countDisplay">0</div></div>
+      <div class="stat-box"><div class="stat-label">發票總額</div><div class="stat-value" id="invoiceDisplay">$0</div></div>
+      <div class="stat-box"><div class="stat-label">郵票總額</div><div class="stat-value" id="stampDisplay">$0</div></div>
+    </div>
+    <div class="total-row">
+      <div class="total-label">應收總額</div>
+      <div class="total-price" id="totalDisplay">$0</div>
+    </div>
+  </div>
+
+  <div id="successOverlay" class="success-overlay">
+    <div style="font-size:80px;">✅</div>
+    <div style="font-size:30px; font-weight:bold;">謝謝惠顧</div>
+  </div>
+
+  <script>
+    const myBranch = "<?= targetBranch ?>";
+    let pollInterval = null;
+    let lastJson = ""; 
+
+    if (myBranch) {
+      pollInterval = setInterval(fetchData, 1000); // 改為 1 秒檢查一次,減輕負擔
+    } else {
+      document.getElementById('emptyState').innerHTML = "❌ 網址缺少支局參數";
+    }
+
+    function fetchData() {
+      google.script.run.withSuccessHandler(data => {
+        if (!data) return;
+        
+        const currentJson = JSON.stringify(data);
+        // 如果資料跟上次一樣,就直接結束,什麼都不做 (這就是防止一直刷新的關鍵)
+        if (currentJson === lastJson) return;
+        
+        // 只有資料變更時,才更新 lastJson 並執行動作
+        lastJson = currentJson;
+
+        if (data.type === 'update') {
+          renderView(data.cart);
+        } else if (data.type === 'finish') {
+          showSuccess();
+        }
+      }).fetchFromCloud(myBranch);
+    }
+
+    function renderView(cart) {
+      document.getElementById('successOverlay').style.display = 'none';
+      const table = document.getElementById('itemTable');
+      const tbody = document.getElementById('itemList');
+      const emptyState = document.getElementById('emptyState');
+      
+      const countDisplay = document.getElementById('countDisplay');
+      const invoiceDisplay = document.getElementById('invoiceDisplay');
+      const stampDisplay = document.getElementById('stampDisplay');
+      const totalDisplay = document.getElementById('totalDisplay');
+
+      if (!cart || cart.length === 0) {
+        table.style.display = 'none';
+        emptyState.style.display = 'flex';
+        countDisplay.innerText = "0";
+        invoiceDisplay.innerText = "$0";
+        stampDisplay.innerText = "$0";
+        totalDisplay.innerText = "$0";
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      table.style.display = 'table';
+      
+      let count = cart.length;
+      let invoiceSum = 0; 
+      let stampSum = 0;   
+      let grandTotal = 0; 
+
+      tbody.innerHTML = cart.map(item => {
+        let p = Number(item.price || 0);
+        let f = Number(item.fee || 0);
+        let s = Number(item.stamp || 0);
+        let t = Number(item.total || 0);
+        invoiceSum += (p + f);
+        stampSum += s;
+        grandTotal += t;
+        return `<tr><td>${item.name}</td><td style="text-align:center;">1</td><td class="col-price">$${t.toLocaleString()}</td></tr>`;
+      }).join('');
+
+      countDisplay.innerText = count;
+      invoiceDisplay.innerText = "$" + invoiceSum.toLocaleString();
+      stampDisplay.innerText = "$" + stampSum.toLocaleString();
+      totalDisplay.innerText = "$" + grandTotal.toLocaleString();
+      
+      document.querySelector('.content').scrollTop = document.querySelector('.content').scrollHeight;
+    }
+
+    function showSuccess() {
+      const overlay = document.getElementById('successOverlay');
+      overlay.style.display = 'flex';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        // renderView([]); // 其實不需要清空畫面,保留最後一筆金額給客人看也沒關係
+        
+        // 🔥 關鍵修正:這裡絕對不能把 lastJson 清空!
+        // 只要不清空,下次檢查時發現雲端還是 'finish',
+        // 因為跟現在的 lastJson 一模一樣,就會被上面的 if (currentJson === lastJson) 擋下來,
+        // 就不會再跑一次 showSuccess 了。
+        // lastJson = "";  <--- 這行已刪除
+      }, 4000);
+    }
+  </script>
+</body>
+</html>

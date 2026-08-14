@@ -1,0 +1,678 @@
+<style>
+  .admin-layout { display: flex; height: 100%; background: #eceff1; border-radius: 12px; overflow: hidden; border: 1px solid #cfd8dc; }
+  .admin-sidebar { width: 180px; background: #263238; color: #b0bec5; display: flex; flex-direction: column; padding: 10px 0; flex-shrink: 0; }
+  .admin-sidebar-title { font-size: 13px; font-weight: bold; color: #fff; padding: 0 15px 10px 15px; border-bottom: 1px solid #37474f; margin-bottom: 10px; letter-spacing: 1px; }
+  .admin-tab { background: transparent; color: #b0bec5; border: none; padding: 12px 15px; text-align: left; font-size: 14px; cursor: pointer; transition: 0.2s; border-left: 4px solid transparent; }
+  .admin-tab:hover { background: #37474f; color: #fff; }
+  .admin-tab.active { background: #37474f; color: #fff; border-left-color: #9575cd; font-weight: bold; }
+  
+  .admin-content { flex: 1; padding: 20px; overflow-y: auto; background: #f8f9fa; position: relative; }
+  .admin-panel { display: none; animation: admin-fadein 0.3s; }
+  .admin-panel.active { display: block; }
+  
+  .admin-card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #eee; margin-bottom: 15px; }
+  .admin-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eceff1; padding-bottom: 10px; margin-bottom: 15px; }
+  .admin-card h3 { margin: 0; font-size: 16px; color: #37474f; }
+  
+  .admin-form-group { margin-bottom: 15px; }
+  .admin-form-row { display: flex; gap: 10px; }
+  .admin-form-row .admin-form-group { flex: 1; }
+  .admin-form-group label { display: block; font-size: 13px; color: #546e7a; margin-bottom: 5px; font-weight: bold; }
+  .admin-input, .admin-textarea, .admin-select { width: 100%; padding: 10px; border: 1px solid #cfd8dc; border-radius: 6px; font-size: 14px; background: #fff; transition: 0.2s; }
+  .admin-textarea { resize: vertical; min-height: 80px; }
+  .admin-input:disabled { background: #f5f5f5; color: #999; border-color: #eee; }
+  
+  .admin-btn { background: #9575cd; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+  .admin-btn:hover { background: #7e57c2; }
+  .admin-btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 4px; }
+  .admin-btn-danger { background: #e53935; color: white; border: none; cursor: pointer; }
+  .admin-btn-danger:hover { background: #c62828; }
+  .admin-btn-outline { background: transparent; color: #546e7a; border: 1px solid #cfd8dc; transition: 0.2s; cursor: pointer; }
+  .admin-btn-outline:hover { background: #eceff1; color: #263238; border-color: #90a4ae; }
+  
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .admin-table th { background: #eceff1; color: #455a64; padding: 10px; text-align: left; border-bottom: 2px solid #cfd8dc; position: sticky; top: 0; z-index: 2; }
+  .admin-table td { padding: 10px; border-bottom: 1px solid #eee; color: #333; }
+  
+  .admin-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 99999; align-items: center; justify-content: center; }
+  .admin-modal { background: #fff; width: 500px; max-width: 95%; max-height: 90vh; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; animation: admin-fadein 0.2s; }
+  .admin-modal-header { background: #37474f; color: white; padding: 15px 20px; font-weight: bold; display: flex; justify-content: space-between; flex-shrink: 0; }
+  .admin-modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+  .admin-modal-footer { padding: 15px 20px; background: #f8f9fa; border-top: 1px solid #eee; text-align: right; flex-shrink: 0; }
+  
+  @keyframes admin-fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<div class="admin-layout">
+  
+  <div class="admin-sidebar">
+    <div class="admin-sidebar-title">⚙️ 系統管理後台</div>
+    <button class="admin-tab active" onclick="AdminSystem.switchTab('settings')">⚙️ 系統設定</button>
+    <button class="admin-tab" onclick="AdminSystem.switchTab('users')">👥 帳號管理</button>
+    <button class="admin-tab" onclick="AdminSystem.switchTab('products')">🏷️ 商品維護</button>
+    <button class="admin-tab" onclick="AdminSystem.switchTab('schedule')">📅 排程補貨</button>
+    <button class="admin-tab" onclick="AdminSystem.switchTab('logs')">📦 進退庫誌</button>
+    <button class="admin-tab" onclick="AdminSystem.switchTab('reports')">📊 銷售報表</button>
+    <button class="admin-tab" onclick="AdminSystem.switchTab('reserved')">🛠️ 預留功能</button>
+  </div>
+
+  <div class="admin-content">
+    
+    <div id="admin-panel-settings" class="admin-panel active">
+      <div class="admin-card">
+        <div class="admin-card-header"><h3>基本系統設定</h3></div>
+        <div class="admin-form-group"><label>系統顯示名稱 (B1)</label><input type="text" id="admin-set-title" class="admin-input"></div>
+        <div class="admin-form-group"><label>系統版本號 (B2)</label><input type="text" id="admin-set-version" class="admin-input"></div>
+        <div class="admin-form-group"><label>攤位重要公告 (B3)</label><textarea id="admin-set-notice" class="admin-textarea"></textarea></div>
+        <div class="admin-form-group"><label>活動網址 / iframe (B4)</label><input type="text" id="admin-set-url" class="admin-input"></div>
+        <div class="admin-form-group"><label>報表接收 Email (B5)</label><input type="text" id="admin-set-email" class="admin-input"></div>
+        <div class="admin-form-group"><label>活動地點清單 (B6開始,用換行區隔)</label><textarea id="admin-set-locations" class="admin-textarea" style="min-height: 120px;"></textarea></div>
+        <button class="admin-btn" id="admin-save-settings-btn" onclick="AdminSystem.saveSettings()">💾 儲存設定並同步</button>
+      </div>
+    </div>
+
+    <div id="admin-panel-users" class="admin-panel">
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <h3>👥 帳號管理清單</h3>
+          <button class="admin-btn admin-btn-sm" onclick="AdminSystem.openUserModal()">+ 新增帳號</button>
+        </div>
+        <div id="admin-users-table-container">載入中...</div>
+      </div>
+    </div>
+
+    <div id="admin-panel-products" class="admin-panel">
+      <div class="admin-card">
+        <div class="admin-card-header">
+          <h3>🏷️ 商品與初始庫存維護</h3>
+          <button class="admin-btn admin-btn-sm" onclick="AdminSystem.openProductModal()">+ 新增商品</button>
+        </div>
+        <div id="admin-products-table-container">載入中...</div>
+      </div>
+    </div>
+
+    <div id="admin-panel-records" class="admin-panel"><div class="admin-card"><h3>📜 銷售紀錄檢視</h3><p style="color:#78909c;">🚧 模組建置中...</p></div></div>
+    <div id="admin-panel-schedule" class="admin-panel">
+      
+      <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:15px; margin-bottom:15px;">
+        
+        <div class="admin-card" style="margin:0;">
+          <div class="admin-card-header" style="margin-bottom:10px; padding-bottom:5px;">
+            <h3 style="color:#2e7d32;">📡 票券股最新配票動態</h3>
+            <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.loadScheduleData()">🔄 重新整理</button>
+          </div>
+          <div style="max-height:220px; overflow-y:auto; padding-right:5px;">
+            <table class="admin-table" style="font-size:13px;">
+              <thead><tr><th>單號</th><th>日期</th><th>地點</th><th style="text-align:right;">操作</th></tr></thead>
+              <tbody id="admin-schedule-alloc-list">
+                <tr><td colspan="4" align="center">資料打撈中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="admin-card" style="margin:0; background:#f4f1ea; border-color:#e2ddd6; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+          <h3 style="color:#7d93a6; margin-bottom:5px;">🚚 手動輸入轉檔神器</h3>
+          <p style="color:#777; font-size:12px; margin-top:0; margin-bottom:15px;">將配票紀錄一鍵轉入收銀機排程</p>
+          <div style="width:100%; padding:0 20px;">
+            <input type="text" id="admin-schedule-order-input" class="admin-input" placeholder="輸入單號 (例如: A123456)" style="text-align:center; font-weight:bold; text-transform:uppercase;">
+            <button class="admin-btn" id="admin-schedule-transfer-btn" onclick="AdminSystem.executeTransfer()" style="width:100%; background:#8c9d8a;">開始跨庫轉檔</button>
+          </div>
+          <div id="admin-schedule-msg" style="margin-top:15px; font-weight:bold; font-size:14px; min-height:20px;"></div>
+        </div>
+      </div>
+
+      <div class="admin-card" style="margin:0;">
+        <h3 style="margin-bottom:10px;">📦 收銀機排程資料庫 (最新 20 筆預覽)</h3>
+        <div style="overflow-x:auto; max-height: 400px; border:1px solid #eee; border-radius:6px;">
+          <table class="admin-table" style="font-size:12px;width:100%;">
+            <thead id="admin-schedule-preview-head"></thead>
+            <tbody id="admin-schedule-preview-body">
+              <tr><td align="center">載入中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="admin-panel-logs" class="admin-panel"><div class="admin-card"><h3>📦 進退庫日誌</h3><p style="color:#78909c;">🚧 模組建置中...</p></div></div>
+    <div id="admin-panel-reserved" class="admin-panel"><div class="admin-card"><h3>🛠️ 預留擴充區</h3><p style="color:#78909c;">🚧 模組建置中...</p></div></div>
+
+    <div id="admin-panel-reports" class="admin-panel">
+      
+      <div class="admin-card" style="display:flex; gap:10px; align-items:center; background:#e8eaf6; border-color:#c5cae9;">
+        <span style="font-weight:bold; color:#283593;">📅 條件篩選:</span>
+        <input type="date" id="admin-report-start" class="admin-input" style="width:140px; margin:0;">
+        <span style="color:#5c6bc0;">至</span>
+        <input type="date" id="admin-report-end" class="admin-input" style="width:140px; margin:0;">
+        
+        <span style="font-weight:bold; color:#283593; margin-left:10px;">📍 地點:</span>
+        <select id="admin-report-loc" class="admin-select" style="width:160px; margin:0;">
+          <option value="">所有攤位</option>
+        </select>
+        
+        <button class="admin-btn" onclick="AdminSystem.loadReports()" style="background:#3949ab; margin-left:10px;">🔍 產生報表</button>
+        <button class="admin-btn-outline admin-btn-sm" onclick="document.getElementById('admin-report-start').value=''; document.getElementById('admin-report-end').value=''; document.getElementById('admin-report-loc').value=''; AdminSystem.loadReports();" style="padding:10px; margin-left:auto;">重置條件</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; margin-bottom:15px;">
+        <div class="admin-card" style="margin:0; text-align:center; padding:15px 5px;">
+          <div style="font-size:12px; color:#78909c; margin-bottom:5px;">💰 銷售總金額 (應收)</div>
+          <div id="admin-rep-sumT" style="font-size:24px; font-weight:bold; color:#d32f2f;">$0</div>
+        </div>
+        <div class="admin-card" style="margin:0; text-align:center; padding:15px 5px;">
+          <div style="font-size:12px; color:#78909c; margin-bottom:5px;">🧾 總交易筆數</div>
+          <div id="admin-rep-orders" style="font-size:24px; font-weight:bold; color:#1976d2;">0</div>
+        </div>
+        <div class="admin-card" style="margin:0; text-align:center; padding:15px 5px;">
+          <div style="font-size:12px; color:#78909c; margin-bottom:5px;">🏷️ 單價總計 (發票)</div>
+          <div id="admin-rep-sumP" style="font-size:24px; font-weight:bold; color:#f57c00;">$0</div>
+        </div>
+        <div class="admin-card" style="margin:0; text-align:center; padding:15px 5px;">
+          <div style="font-size:12px; color:#78909c; margin-bottom:5px;">📮 郵票總計 (購票)</div>
+          <div id="admin-rep-sumS" style="font-size:24px; font-weight:bold; color:#0288d1;">$0</div>
+        </div>
+        <div class="admin-card" style="margin:0; text-align:center; padding:15px 5px;">
+          <div style="font-size:12px; color:#78909c; margin-bottom:5px;">🛠️ 製作費總計</div>
+          <div id="admin-rep-sumF" style="font-size:24px; font-weight:bold; color:#388e3c;">$0</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+        <div class="admin-card" style="margin:0; padding:0; display:flex; flex-direction:column; height: 50vh;">
+          <h3 style="padding:15px 20px; margin:0; border-bottom:1px solid #eee; background:#fafafa; border-radius:12px 12px 0 0;">📦 銷售品項統計 <span style="font-size:11px; color:#999; font-weight:normal;">(顧客結帳的商品)</span></h3>
+          <div style="flex:1; overflow-y:auto;">
+            <table class="admin-table">
+              <thead><tr><th>#</th><th>票號</th><th>品名</th><th style="text-align:center;">數量</th></tr></thead>
+              <tbody id="admin-rep-salesTable"><tr><td colspan="4" align="center">請點擊產生報表...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div class="admin-card" style="margin:0; padding:0; display:flex; flex-direction:column; height: 50vh;">
+          <h3 style="padding:15px 20px; margin:0; border-bottom:1px solid #eee; background:#fafafa; border-radius:12px 12px 0 0;">🏭 實際庫存扣除統計 <span style="font-size:11px; color:#999; font-weight:normal;">(含組合包BOM展開)</span></h3>
+          <div style="flex:1; overflow-y:auto;">
+            <table class="admin-table">
+              <thead><tr><th>#</th><th>票號</th><th>品名</th><th style="text-align:center;">扣除數</th></tr></thead>
+              <tbody id="admin-rep-deductTable"><tr><td colspan="4" align="center">請點擊產生報表...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-user-modal" class="admin-modal-overlay">
+      <div class="admin-modal" style="width: 400px;">
+        <div class="admin-modal-header"><span id="admin-user-modal-title">新增帳號</span><span style="cursor:pointer;" onclick="AdminSystem.closeUserModal()">✕</span></div>
+        <div class="admin-modal-body">
+          <input type="hidden" id="admin-user-old-acc">
+          <input type="hidden" id="admin-user-action">
+          <div class="admin-form-group"><label>員工編號</label><input type="text" id="admin-user-acc" class="admin-input"></div>
+          <div class="admin-form-group"><label>密碼</label><input type="text" id="admin-user-pwd" class="admin-input"></div>
+          <div class="admin-form-group"><label>所屬支局</label><input type="text" id="admin-user-branch" class="admin-input"></div>
+          <div class="admin-form-group"><label>權限</label><select id="admin-user-role" class="admin-select"><option value="STAFF">STAFF</option><option value="ADMIN">ADMIN</option></select></div>
+        </div>
+        <div class="admin-modal-footer">
+          <button class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.closeUserModal()">取消</button>
+          <button class="admin-btn admin-btn-sm" id="admin-user-save-btn" onclick="AdminSystem.saveUser()" style="margin-left:8px;">確認儲存</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-product-modal" class="admin-modal-overlay">
+      <div class="admin-modal">
+        <div class="admin-modal-header"><span id="admin-product-modal-title">新增商品</span><span style="cursor:pointer;" onclick="AdminSystem.closeProductModal()">✕</span></div>
+        <div class="admin-modal-body">
+          <input type="hidden" id="admin-product-old-id">
+          <input type="hidden" id="admin-product-action">
+          
+          <div class="admin-form-row">
+            <div class="admin-form-group" style="flex:1">
+              <label>票號 (ID) <span style="color:red">*</span></label>
+              <div style="display:flex; gap:5px;">
+                <input type="text" id="admin-prod-id" class="admin-input" placeholder="例: A001" onkeydown="if(event.key==='Enter') AdminSystem.fetchMasterInfo()">
+                <button class="admin-btn admin-btn-sm" id="admin-prod-fetch-btn" onclick="AdminSystem.fetchMasterInfo()" style="padding:0 10px; background:#0288d1;">🔍 帶入</button>
+              </div>
+            </div>
+            <div class="admin-form-group" style="flex:2">
+              <label>品名 (自動帶入)</label>
+              <input type="text" id="admin-prod-name" class="admin-input" disabled placeholder="輸入票號後點擊「帶入」">
+            </div>
+          </div>
+          
+          <div class="admin-form-row">
+            <div class="admin-form-group"><label>單價 (自動)</label><input type="text" id="admin-prod-price" class="admin-input" disabled placeholder="-"></div>
+            <div class="admin-form-group"><label>郵票 (自動)</label><input type="text" id="admin-prod-stamp" class="admin-input" disabled placeholder="-"></div>
+            <div class="admin-form-group"><label>製作費 (自動)</label><input type="text" id="admin-prod-fee" class="admin-input" disabled placeholder="-"></div>
+          </div>
+          <div class="admin-form-group">
+             <label style="color:#d35f5f;">售價 (直抓主檔總額)</label>
+             <input type="text" id="admin-prod-total" class="admin-input" disabled placeholder="-" style="font-weight:bold; color:#d35f5f;">
+          </div>
+          
+          <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
+            <label>📦 初始庫存設定 (由 Google Sheet 表頭動態產生)</label>
+            <div id="admin-prod-stocks-container" style="background:#f5f5f5; padding:10px; border-radius:6px; margin-top:5px;"></div>
+          </div>
+          <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
+            <label>🔧 BOM 組合設定 (選填)</label>
+            <input type="text" id="admin-prod-bom" class="admin-input" placeholder="例: A001:1,B002:2">
+            <div style="font-size:11px; color:#888; margin-top:4px;">若為組合包才需填寫,用半形逗號隔開。</div>
+          </div>
+
+        </div>
+        <div class="admin-modal-footer">
+          <button class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.closeProductModal()">取消</button>
+          <button class="admin-btn admin-btn-sm" id="admin-product-save-btn" onclick="AdminSystem.saveProduct()" style="margin-left:8px;">確認儲存</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const AdminSystem = {
+  usersData: [],
+  productsData: [],
+  productLocations: [],
+
+  init: function() {
+    this.switchTab('settings');
+  },
+
+  switchTab: function(tabName) {
+    document.querySelectorAll('.admin-tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.admin-panel').forEach(el => el.classList.remove('active'));
+    
+    const btn = document.querySelector(`.admin-tab[onclick*="${tabName}"]`);
+    if (btn) btn.classList.add('active');
+    const panel = document.getElementById('admin-panel-' + tabName);
+    if (panel) panel.classList.add('active');
+
+    if (tabName === 'settings') this.loadSettings();
+    if (tabName === 'users') this.loadUsers();
+    if (tabName === 'products') this.loadProducts();
+    if (tabName === 'reports') this.loadReports();
+    if (tabName === 'schedule') this.loadScheduleData();
+  },
+
+  // ==================== 🟢 模組 1:設定管理 ====================
+  loadSettings: function() {
+    const btn = document.getElementById('admin-save-settings-btn');
+    btn.innerText = "⏳ 讀取中...";
+    google.script.run.withSuccessHandler(data => {
+      btn.innerText = "💾 儲存設定並同步";
+      if(data) {
+        document.getElementById('admin-set-title').value = data.title || "";
+        document.getElementById('admin-set-version').value = data.version || "";
+        document.getElementById('admin-set-notice').value = data.notice || "";
+        document.getElementById('admin-set-url').value = data.activityUrl || "";
+        document.getElementById('admin-set-email').value = data.email || "";
+        document.getElementById('admin-set-locations').value = (data.locations || []).join('\n');
+      }
+    }).getAdminSettings();
+  },
+
+  saveSettings: function() {
+    const btn = document.getElementById('admin-save-settings-btn');
+    btn.innerText = "⏳ 儲存中..."; btn.disabled = true;
+    const locString = document.getElementById('admin-set-locations').value;
+    const data = {
+      title: document.getElementById('admin-set-title').value,
+      version: document.getElementById('admin-set-version').value,
+      notice: document.getElementById('admin-set-notice').value,
+      activityUrl: document.getElementById('admin-set-url').value,
+      email: document.getElementById('admin-set-email').value,
+      locations: locString.split('\n').map(l => l.trim()).filter(l => l !== "")
+    };
+    google.script.run.withSuccessHandler(res => {
+      btn.innerText = "💾 儲存設定並同步"; btn.disabled = false;
+      if (res === "OK") alert("✅ 設定已成功更新!"); else alert("❌ 儲存失敗:" + res);
+    }).saveAdminSettings(data);
+  },
+
+  // ==================== 🟡 模組 2:帳號管理 ====================
+  loadUsers: function() {
+    document.getElementById('admin-users-table-container').innerHTML = "⏳ 資料讀取中...";
+    google.script.run.withSuccessHandler(data => { this.usersData = data; this.renderUsersTable(); }).getAdminUsers();
+  },
+  
+  renderUsersTable: function() {
+    if (this.usersData.length === 0) { document.getElementById('admin-users-table-container').innerHTML = "無帳號資料。"; return; }
+    let html = '<table class="admin-table"><thead><tr><th>員工編號</th><th>密碼</th><th>預設支局</th><th>權限</th><th>操作</th></tr></thead><tbody>';
+    this.usersData.forEach((u, i) => {
+      html += `<tr><td>${u.account}</td><td>${u.password}</td><td>${u.branch}</td><td style="${u.role==='ADMIN'?'color:#9575cd;font-weight:bold;':''}">${u.role}</td>
+        <td><button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.openUserModal(${i})">✏️ 編輯</button>
+        <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteUser('${u.account}')">🗑️ 刪除</button></td></tr>`;
+    });
+    document.getElementById('admin-users-table-container').innerHTML = html + '</tbody></table>';
+  },
+  
+  openUserModal: function(i) {
+    document.getElementById('admin-user-modal').style.display = 'flex';
+    if (i !== undefined) {
+      let u = this.usersData[i]; 
+      document.getElementById('admin-user-modal-title').innerText = "✏️ 編輯帳號"; 
+      document.getElementById('admin-user-action').value = "EDIT"; 
+      document.getElementById('admin-user-old-acc').value = u.account;
+      document.getElementById('admin-user-acc').value = u.account; 
+      document.getElementById('admin-user-pwd').value = u.password; 
+      document.getElementById('admin-user-branch').value = u.branch; 
+      document.getElementById('admin-user-role').value = u.role;
+    } else {
+      document.getElementById('admin-user-modal-title').innerText = "➕ 新增帳號"; 
+      document.getElementById('admin-user-action').value = "ADD"; 
+      document.getElementById('admin-user-old-acc').value = "";
+      document.getElementById('admin-user-acc').value = ""; 
+      document.getElementById('admin-user-pwd').value = ""; 
+      document.getElementById('admin-user-branch').value = ""; 
+      document.getElementById('admin-user-role').value = "STAFF";
+    }
+  },
+  
+  closeUserModal: function() { document.getElementById('admin-user-modal').style.display = 'none'; },
+  
+  saveUser: function() {
+    const data = { account: document.getElementById('admin-user-acc').value.trim(), password: document.getElementById('admin-user-pwd').value.trim(), branch: document.getElementById('admin-user-branch').value.trim(), role: document.getElementById('admin-user-role').value };
+    if (!data.account || !data.password || !data.branch) { alert("⚠️ 請填寫完整資料!"); return; }
+    const action = document.getElementById('admin-user-action').value;
+    const oldAcc = document.getElementById('admin-user-old-acc').value;
+    const btn = document.getElementById('admin-user-save-btn'); 
+    btn.innerText = "⏳ 儲存中..."; btn.disabled = true;
+    
+    google.script.run.withSuccessHandler(res => { 
+      btn.innerText = "確認儲存"; btn.disabled = false; 
+      if (res === "OK") { AdminSystem.closeUserModal(); AdminSystem.loadUsers(); } else alert(res); 
+    }).manageAdminUser(action, data, oldAcc);
+  },
+  
+  deleteUser: function(acc) {
+    if (!confirm(`確定要刪除帳號 [${acc}] 嗎?`)) return;
+    document.getElementById('admin-users-table-container').innerHTML = "⏳ 刪除中...";
+    google.script.run.withSuccessHandler(() => AdminSystem.loadUsers()).manageAdminUser("DELETE", null, acc);
+  },
+
+  // ==================== 🟠 模組 3:商品維護 ====================
+  loadProducts: function() {
+    document.getElementById('admin-products-table-container').innerHTML = "⏳ 讀取商品資料庫中...";
+    google.script.run.withSuccessHandler(res => {
+      this.productsData = res.products;
+      this.productLocations = res.locations; 
+      this.renderProductsTable();
+    }).getAdminProducts();
+  },
+
+  renderProductsTable: function() {
+    if (this.productsData.length === 0) { document.getElementById('admin-products-table-container').innerHTML = "無商品資料。"; return; }
+    let html = '<table class="admin-table"><thead><tr><th>票號</th><th>品名</th><th>售價</th><th>BOM</th><th>操作</th></tr></thead><tbody>';
+    this.productsData.forEach((p, i) => {
+      let bomBadge = p.bom ? `<span style="background:#e3f2fd; color:#1976d2; padding:2px 6px; border-radius:4px; font-size:11px;">組合包</span>` : '';
+      html += `<tr>
+        <td><b>${p.id}</b></td>
+        <td>${p.name}</td>
+        <td style="color:#d35f5f; font-weight:bold;">$${p.total}</td>
+        <td>${bomBadge}</td>
+        <td>
+          <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.openProductModal(${i})" style="margin-right:5px;">✏️ 編輯</button>
+          <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteProduct('${p.id}')">🗑️ 刪除</button>
+        </td>
+      </tr>`;
+    });
+    document.getElementById('admin-products-table-container').innerHTML = html + '</tbody></table>';
+  },
+
+  fetchMasterInfo: function() {
+    const id = document.getElementById('admin-prod-id').value.trim();
+    if (!id) { alert("請先輸入票號!"); return; }
+    
+    const btn = document.getElementById('admin-prod-fetch-btn');
+    btn.innerText = "⏳..."; btn.disabled = true;
+    
+    google.script.run.withSuccessHandler(res => {
+      btn.innerText = "🔍 帶入"; btn.disabled = false;
+      if (res.success) {
+        document.getElementById('admin-prod-name').value = res.name;
+        document.getElementById('admin-prod-price').value = res.price;
+        document.getElementById('admin-prod-stamp').value = res.stamp;
+        document.getElementById('admin-prod-fee').value = res.fee;
+        document.getElementById('admin-prod-total').value = res.total;
+      } else {
+        alert("❌ " + res.msg);
+        document.getElementById('admin-prod-name').value = "";
+        document.getElementById('admin-prod-price').value = "";
+        document.getElementById('admin-prod-stamp').value = "";
+        document.getElementById('admin-prod-fee').value = "";
+        document.getElementById('admin-prod-total').value = "";
+      }
+    }).getProductInfoFromMaster(id);
+  },
+
+  openProductModal: function(i) {
+    document.getElementById('admin-product-modal').style.display = 'flex';
+    
+    let stockHtml = '';
+    this.productLocations.forEach(loc => {
+       stockHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
+          <label style="margin:0; font-weight:normal;">📍 ${loc}</label>
+          <input type="number" id="admin-prod-stock-${loc}" class="admin-input" style="width:80px; padding:6px;" value="0">
+       </div>`;
+    });
+    if(stockHtml === '') stockHtml = '<div style="color:#999; font-size:12px;">試算表內尚未設定攤位庫存欄位。</div>';
+    document.getElementById('admin-prod-stocks-container').innerHTML = stockHtml;
+
+    if (i !== undefined) {
+      let p = this.productsData[i];
+      document.getElementById('admin-product-modal-title').innerText = "✏️ 編輯商品";
+      document.getElementById('admin-product-action').value = "EDIT";
+      document.getElementById('admin-product-old-id').value = p.id;
+      
+      document.getElementById('admin-prod-id').value = p.id;
+      document.getElementById('admin-prod-name').value = p.name || "(未找到品名)";
+      document.getElementById('admin-prod-price').value = p.price;
+      document.getElementById('admin-prod-stamp').value = p.stamp;
+      document.getElementById('admin-prod-fee').value = p.fee;
+      document.getElementById('admin-prod-total').value = p.total;
+      document.getElementById('admin-prod-bom').value = p.bom;
+      
+      this.productLocations.forEach(loc => {
+        if(document.getElementById(`admin-prod-stock-${loc}`)) {
+           document.getElementById(`admin-prod-stock-${loc}`).value = p.stocks[loc] || 0;
+        }
+      });
+    } else {
+      document.getElementById('admin-product-modal-title').innerText = "➕ 新增商品";
+      document.getElementById('admin-product-action').value = "ADD";
+      document.getElementById('admin-product-old-id').value = "";
+      
+      document.getElementById('admin-prod-id').value = "";
+      document.getElementById('admin-prod-name').value = "";
+      document.getElementById('admin-prod-price').value = "";
+      document.getElementById('admin-prod-stamp').value = "";
+      document.getElementById('admin-prod-fee').value = "";
+      document.getElementById('admin-prod-total').value = "";
+      document.getElementById('admin-prod-bom').value = "";
+    }
+  },
+
+  closeProductModal: function() { document.getElementById('admin-product-modal').style.display = 'none'; },
+
+  saveProduct: function() {
+    const id = document.getElementById('admin-prod-id').value.trim();
+    if (!id) { alert("⚠️ 票號不可為空!"); return; } 
+
+    let stocks = {};
+    this.productLocations.forEach(loc => {
+       let val = document.getElementById(`admin-prod-stock-${loc}`) ? document.getElementById(`admin-prod-stock-${loc}`).value : 0;
+       stocks[loc] = val;
+    });
+
+    const data = { id: id, bom: document.getElementById('admin-prod-bom').value, stocks: stocks };
+    const action = document.getElementById('admin-product-action').value;
+    const oldId = document.getElementById('admin-product-old-id').value;
+    const btn = document.getElementById('admin-product-save-btn');
+    btn.innerText = "⏳ 儲存中..."; btn.disabled = true;
+
+    google.script.run.withSuccessHandler(res => {
+      btn.innerText = "確認儲存"; btn.disabled = false;
+      if (res === "OK") { AdminSystem.closeProductModal(); AdminSystem.loadProducts(); } else alert(res);
+    }).manageAdminProduct(action, data, oldId);
+  },
+
+  deleteProduct: function(id) {
+    if (!confirm(`⚠️ 確定要刪除商品 [${id}] 嗎?\n此動作將一併刪除該商品的所有庫存。`)) return;
+    document.getElementById('admin-products-table-container').innerHTML = "⏳ 刪除中...";
+    google.script.run.withSuccessHandler(() => AdminSystem.loadProducts()).manageAdminProduct("DELETE", null, id);
+  },
+
+  // ==================== 🔵 模組 4:戰情室報表 (Dashboard) ====================
+  loadReports: function() {
+    const sDate = document.getElementById('admin-report-start').value;
+    const eDate = document.getElementById('admin-report-end').value;
+    const loc = document.getElementById('admin-report-loc').value;
+    
+    // 讓所有區塊顯示 Loading
+    document.getElementById('admin-rep-sumT').innerText = "⏳";
+    document.getElementById('admin-rep-orders').innerText = "⏳";
+    document.getElementById('admin-rep-sumP').innerText = "⏳";
+    document.getElementById('admin-rep-sumS').innerText = "⏳";
+    document.getElementById('admin-rep-sumF').innerText = "⏳";
+    document.getElementById('admin-rep-salesTable').innerHTML = '<tr><td colspan="4" align="center">讀取與計算中...</td></tr>';
+    document.getElementById('admin-rep-deductTable').innerHTML = '<tr><td colspan="4" align="center">讀取與計算中...</td></tr>';
+
+    google.script.run.withSuccessHandler(res => {
+      if (!res.success) { alert("報表產生失敗:" + res.msg); return; }
+      const d = res.data;
+
+      // 1. 填入地點選項 (只在第一次讀取時建立選項)
+      const locSelect = document.getElementById('admin-report-loc');
+      if (locSelect.options.length <= 1 && d.locations.length > 0) {
+        let opts = '<option value="">所有攤位</option>';
+        d.locations.forEach(l => opts += `<option value="${l}">${l}</option>`);
+        locSelect.innerHTML = opts;
+        locSelect.value = loc; // 保持使用者原本選的狀態
+      }
+      
+      // 2. 更新 5 大 KPI 數字
+      document.getElementById('admin-rep-sumT').innerText = "$" + Number(d.sumT).toLocaleString();
+      document.getElementById('admin-rep-orders').innerText = d.orders;
+      document.getElementById('admin-rep-sumP').innerText = "$" + Number(d.sumP).toLocaleString();
+      document.getElementById('admin-rep-sumS').innerText = "$" + Number(d.sumS).toLocaleString();
+      document.getElementById('admin-rep-sumF').innerText = "$" + Number(d.sumF).toLocaleString();
+
+      // 3. 渲染左側「銷售品項」表
+      let salesHtml = '';
+      if(d.salesList.length === 0) salesHtml = '<tr><td colspan="4" align="center">查無銷售資料</td></tr>';
+      else {
+        d.salesList.forEach((item, i) => {
+          salesHtml += `<tr><td>${i+1}</td><td><b>${item.id}</b></td><td>${item.name}</td><td align="center">${item.qty}</td></tr>`;
+        });
+      }
+      document.getElementById('admin-rep-salesTable').innerHTML = salesHtml;
+
+      // 4. 渲染右側「庫存扣除(展開)」表
+      let deductHtml = '';
+      if(d.deductList.length === 0) deductHtml = '<tr><td colspan="4" align="center">查無扣庫資料</td></tr>';
+      else {
+        d.deductList.forEach((item, i) => {
+          deductHtml += `<tr><td>${i+1}</td><td><b>${item.id}</b></td><td>${item.name}</td><td align="center" style="color:blue;font-weight:bold;">${item.qty}</td></tr>`;
+        });
+      }
+      document.getElementById('admin-rep-deductTable').innerHTML = deductHtml;
+
+    }).getAdminReportData(sDate, eDate, loc);
+  },
+
+  // ==================== 📅 模組 5:排程補貨 (跨庫轉檔) ====================
+  
+  loadScheduleData: function() {
+    const listBody = document.getElementById('admin-schedule-alloc-list');
+    const pHead = document.getElementById('admin-schedule-preview-head');
+    const pBody = document.getElementById('admin-schedule-preview-body');
+    
+    listBody.innerHTML = '<tr><td colspan="4" align="center">⏳ 跨庫連線中...</td></tr>';
+    
+    google.script.run.withSuccessHandler(res => {
+      if(!res.success) {
+         listBody.innerHTML = `<tr><td colspan="4" align="center" style="color:red;">❌ ${res.msg}</td></tr>`;
+         return;
+      }
+      
+      // 1. 渲染左側配票清單
+      let listHtml = '';
+      if(res.data.recentOrders.length === 0) {
+        listHtml = '<tr><td colspan="4" align="center">尚無配票紀錄</td></tr>';
+      } else {
+        res.data.recentOrders.forEach(order => {
+          // 🔥 防呆 UI:如果已轉入,按鈕變灰色且不能按
+          let actionBtn = order.isImported 
+            ? `<button class="admin-btn-sm" style="background:#e0e0e0; color:#9e9e9e; border:none; cursor:not-allowed;" disabled>✅ 已轉入</button>`
+            : `<button class="admin-btn-sm" style="background:#2e7d32; border:none;" onclick="AdminSystem.executeTransfer('${order.orderId}')">📥 轉入</button>`;
+            
+          listHtml += `<tr>
+            <td style="font-weight:bold; color:#1976d2;">${order.orderId}</td>
+            <td>${order.date}</td>
+            <td>${order.location}</td>
+            <td align="right">${actionBtn}</td>
+          </tr>`;
+        });
+      }
+      listBody.innerHTML = listHtml;
+
+      // 2. 渲染下方排程預覽表
+      if(res.data.preview.headers.length === 0) {
+        pHead.innerHTML = ''; pBody.innerHTML = '<tr><td align="center">目前排程表為空</td></tr>';
+      } else {
+        // 🔥 幫標題加上固定寬度與自動換行設定 (大約 3 行的寬度)
+        pHead.innerHTML = '<tr>' + res.data.preview.headers.map(h => {
+          // 判斷:基本資訊欄位不換行,商品欄位限制寬度自動換行
+          let isInfoCol = (h === '預定日期' || h === '補貨地點' || h === '配票單號');
+          let cellStyle = isInfoCol
+            ? 'white-space:nowrap; padding:10px 8px; vertical-align:bottom;' 
+            : 'white-space:normal; min-width:110px; max-width:140px; word-wrap:break-word; vertical-align:bottom; line-height:1.4;';
+          return `<th style="${cellStyle}">${h}</th>`;
+        }).join('') + '</tr>';
+        
+        pBody.innerHTML = res.data.preview.rows.map(row => '<tr>' + row.map((cell, i) => {
+          let h = res.data.preview.headers[i];
+          let isInfoCol = (h === '預定日期' || h === '補貨地點' || h === '配票單號');
+          // 🔥 數字置中對齊,並放大加粗;文字靠左
+          let alignStyle = isInfoCol 
+            ? 'text-align:left; white-space:nowrap;' 
+            : 'text-align:center; font-weight:bold; color:#1976d2; font-size:14px;';
+          return `<td style="${alignStyle}">${cell}</td>`;
+        }).join('') + '</tr>').join('');
+      }
+      
+    }).getScheduleDashboardData();
+  },
+
+  executeTransfer: function(manualId) {
+    // 支援從清單點擊帶入 ID,或是從輸入框抓取
+    let oid = manualId || document.getElementById('admin-schedule-order-input').value.trim().toUpperCase();
+    let msgDiv = document.getElementById('admin-schedule-msg');
+    let btn = document.getElementById('admin-schedule-transfer-btn');
+
+    if (!oid) { msgDiv.style.color = "#d32f2f"; msgDiv.innerText = "⚠️ 請輸入單號!"; return; }
+
+    // UI 改變
+    msgDiv.style.color = "#1976d2";
+    msgDiv.innerText = `⏳ 單號 [${oid}] 轉檔中,請稍候...`;
+    btn.disabled = true; btn.innerText = "處理中...";
+    document.getElementById('admin-schedule-order-input').value = ""; // 清空輸入框
+
+    google.script.run.withSuccessHandler(res => {
+      btn.disabled = false; btn.innerText = "開始跨庫轉檔";
+      if (res.success) {
+        msgDiv.style.color = "#388e3c";
+        msgDiv.innerText = res.msg;
+        // 成功後,自動重新讀取畫面,讓表格跟左側狀態立刻更新!
+        this.loadScheduleData();
+      } else {
+        msgDiv.style.color = "#d32f2f";
+        msgDiv.innerText = res.msg;
+      }
+    }).runAllocationTransfer(oid);
+  }
+
+};
+</script>

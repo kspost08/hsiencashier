@@ -1,0 +1,13 @@
+# 本機一次性腳本(可能用到 service_role key,絕對不能進版控)
+/scripts/
+
+# 環境變數 / 密鑰
+.env
+.env.*
+*.local
+
+# Node
+node_modules/
+
+# Claude Code 個人本機設定,不用進版控
+.claude/settings.local.json

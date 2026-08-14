@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>弦弦收銀機 v8.2</title>
+  <link rel="icon" href="https://drive.google.com/uc?export=download&id=1deGURGonNW7HIjHAEFpFXMHntx_KTMeb" type="image/png">
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root { 
+        --primary: #546e7a; --primary-hover: #455a64; --danger: #d35f5f; --success: #66bb6a;
+        --bg: #f4f1ea; --card-bg: #ffffff; --text-main: #37474f; --text-sub: #78909c;
+        --admin-color: #9575cd; --card-shadow: 0 4px 20px rgba(92, 76, 56, 0.08);
+        --stamp-color: #0288d1;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: "Noto Sans TC", sans-serif; margin: 0; background: var(--bg); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    
+    #login-overlay, #location-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+    #location-overlay { z-index: 9998; } 
+    .login-box { background:var(--card-bg); padding:30px; border-radius:16px; box-shadow:var(--card-shadow); width:320px; }
+    
+    .user-bar { background: #263238; color: #eceff1; padding: 6px 15px; font-size: 12px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+    .user-info-right { display: flex; align-items: center; }
+    .role-badge { padding: 2px 8px; border-radius: 20px; font-size: 11px; background: #546e7a; color: white; margin-left: 10px;}
+    .role-admin { background: var(--admin-color); }
+    .role-staff { background: var(--success); }
+    
+    .btn-qr { background: #ff9800; color: white; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: 0.2s; margin-right: 5px; }
+    .btn-qr:hover { background: #f57c00; }
+    .btn-activity { background: #00897b; color: white; border: none; padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    .btn-logout { background: rgba(255,255,255,0.1); color: #cfd8dc; border: 1px solid rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; margin-left: 10px;}
+    .btn-logout:hover { background: var(--danger); color: white; }
+
+    nav { background: var(--card-bg); display: flex; padding: 0 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); height: 50px; flex-shrink: 0; gap: 10px; }
+    nav button { flex: 1; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-size: 15px; color: var(--text-sub); transition: 0.3s; }
+    nav button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: bold; }
+    
+    .page { display: none; flex: 1; padding: 10px; overflow: hidden; }
+    .page.active { display: flex; flex-direction: column; }
+    .main-layout { display: flex; gap: 10px; height: 100%; overflow: hidden; }
+    .left-section { flex: 1.5; background: var(--card-bg); border-radius: 16px; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; border: 1px solid white; }
+    .right-section { flex: 0.7; min-width: 280px; display: flex; flex-direction: column; gap: 8px; }
+    
+    table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    th { padding: 10px 8px; background-color: #eceff1; color: var(--text-main); font-weight: 600; border-bottom: 2px solid #cfd8dc; font-size: 13px; text-align: left;}
+    td { padding: 8px 8px; border-bottom: 1px solid #f0f0f0; font-size: 14px; vertical-align: middle; }
+    .card { background: var(--card-bg); padding: 12px; border-radius: 16px; box-shadow: var(--card-shadow); border: 1px solid white; }
+    .stat-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #cfd8dc; font-size: 15px; }
+    input[type="text"], input[type="password"], input[type="date"], input[type="number"], select { width: 100%; padding: 10px; border: 2px solid #eceff1; border-radius: 10px; margin-bottom: 8px; background: #fafafa; }
+    .btn-save { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; }
+    .btn-save:hover { background: var(--primary-hover); }
+    
+    #notice-container { background: #fffbe6; border: 1px solid #ffe58f; border-radius: 12px; padding: 10px; margin-top: 2px; height: 110px; display: flex; flex-direction: column; }
+    .notice-header { font-size: 13px; font-weight: bold; color: #856404; margin-bottom: 4px; border-bottom: 1px dashed #ffe58f; }
+    .notice-content { font-size: 13px; color: #5d4037; overflow-y: auto; line-height: 1.4; white-space: pre-wrap; flex: 1; }
+    
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center; }
+    .modal-content { background: white; width: 95%; max-width: 1200px; height: 80%; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-header { padding: 12px 20px; background: #263238; color: white; display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { flex: 1; background: #fff; position: relative; }
+    .close-btn { cursor: pointer; font-size: 20px; }
+    
+    .stamp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .btn-stamp { background: var(--stamp-color); color: white; padding: 15px; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .btn-stamp:hover { background: #0277bd; transform: translateY(-2px); }
+    
+    footer { padding: 8px; text-align: center; font-size: 11px; color: #b0bec5; background: #263238; flex-shrink: 0; }
+    #toast { visibility: hidden; background: rgba(55, 71, 79, 0.9); color: #fff; padding: 12px 24px; position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); border-radius: 50px; z-index: 9999; }
+    #toast.show { visibility: visible; animation: fadein 0.5s; }
+  </style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <h2 style="color:var(--text-main); margin:0 0 20px 0; letter-spacing: 1.5px; font-size: 26px;"><?= sysTitle ?></h2>
+  <div class="login-box">
+    <input type="text" id="login-acc" placeholder="請輸入員工編號">
+    <input type="password" id="login-pwd" placeholder="密碼">
+    <div style="display:flex; align-items:center; margin-bottom:15px; justify-content:flex-start;">
+        <input type="checkbox" id="remember-me" style="width:auto; margin:0 8px 0 0; transform: scale(1.2);">
+        <label for="remember-me" style="font-size:14px; color:#555; cursor:pointer;">記住帳號密碼</label>
+    </div>
+    <button class="btn-save" id="login-btn" onclick="handleLogin()">登入系統</button>
+    <div id="login-msg" style="color:red; font-size:13px; margin-top:10px; text-align:center;"></div>
+  </div>
+  <div style="margin-top: 30px; text-align: center; line-height: 1.8;">
+    <p style="font-size: 13px; color: var(--text-main); margin: 0; font-weight: 700; letter-spacing: 1px;">🛠️ 系統維護資訊</p>
+    <p style="font-size: 12px; color: var(--text-sub); margin: 0;">系統問題請洽高雄郵局企劃行銷科 鄭家弦</p>
+    <p style="font-size: 11px; color: #b0bec5; margin-top: 15px;">系統版本號:<?= sysVersion ?></p>
+  </div>
+</div>
+
+<div id="location-overlay" style="display:none;">
+  <h2 style="color:var(--text-main); margin:0 0 20px 0; letter-spacing: 1px; font-size: 24px;">📍 選擇執勤攤位</h2>
+  <div class="login-box">
+    <select id="location-select" style="font-size:16px; padding:12px; margin-bottom:20px; text-align:center;">
+        <option value="">載入中...</option>
+    </select>
+    <button class="btn-save" onclick="confirmLocation()">確認進入收銀</button>
+  </div>
+</div>
+
+<div class="user-bar">
+  <div>📍 <span id="display-branch">未登入支局</span></div>
+  <div class="user-info-right">
+    <button id="qrBtn" class="btn-qr" onclick="openQrModal()" style="display:none;">📱 客顯連結</button>
+    <button class="btn-activity" onclick="openActivityModal()">📅 攤位活動公告</button>
+    <button id="logoutBtn" class="btn-logout" onclick="handleLogout()" style="display:none;">登出 ➔</button>
+    <span id="display-role" class="role-badge">訪客</span>
+  </div>
+</div>
+
+<nav>
+  <button id="nav-scan" class="active" onclick="showPage('scan')">🛒 掃描收銀</button>
+  <button id="nav-records" onclick="showPage('records')">📜 銷售紀錄</button>
+  <button id="nav-stock" onclick="showPage('stock')">📦 庫存管理</button>
+  <button id="nav-admin" onclick="showPage('admin'); AdminSystem.init();" style="display:none; color:var(--admin-color);">⚙️ 系統後台</button>
+</nav>
+
+<div id="page-scan" class="page active">
+  <div class="main-layout">
+    <div class="left-section">
+      <div style="padding:8px; border-bottom:1px solid #eee;">
+          <input type="text" id="barcodeInput" placeholder="請掃瞄票號 (手動輸入請按 Enter)...">
+      </div>
+      <div style="flex:1; overflow-y:auto; padding:0 5px;">
+        <table class="scan-table">
+          <thead>
+              <tr>
+                  <th class="col-num">#</th><th class="col-id">票號</th><th class="col-name">品名</th>
+                  <th class="col-price-unit">單價</th><th class="col-price">郵票</th><th class="col-fee">製作費</th>
+                  <th class="col-total">售價</th><th style="width:30px"></th>
+              </tr>
+          </thead>
+          <tbody id="cartList"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="right-section">
+      <div class="card">
+        <input type="text" id="invoiceInput" placeholder="發票號碼(選填)">
+        <div class="stat-item"><span>品項數量</span><span id="count">0</span></div>
+        <div class="stat-item"><span>製作費總計</span><span id="feeTotal">$0</span></div>
+        <div class="stat-item" style="color:var(--danger); font-weight:700;"><span>單價總計(發票)</span><span id="priceTotal" style="color:inherit;">$0</span></div>
+        <div class="stat-item" style="color:var(--primary); font-weight:700;"><span>郵票總計(購票)</span><span id="stampTotal" style="color:inherit;">$0</span></div>
+        <hr style="border:0; border-top:1px solid #eee; margin:10px 0;">
+        <div class="stat-item" style="color:var(--danger); font-size:20px; font-weight:bold; align-items:center;"><span>應收總額</span><span id="total">$0</span></div>
+      </div>
+      <button class="btn-save" id="saveBtn" onclick="submitOrder()">確認存檔 or 空白鍵Space</button>
+      
+      <div id="last-record-box" style="margin-top:10px; background:#e0f2f1; border:1px solid #b2dfdb; border-radius:12px; padding:10px; font-size:12px; color:#00695c; display:none;">
+          <div style="font-weight:bold; margin-bottom:4px; border-bottom:1px solid #b2dfdb;">🛡️ 最後存檔檢查</div>
+          <div id="last-record-info">讀取中...</div>
+      </div>
+
+      <div id="notice-container">
+        <div class="notice-header">📢 攤位重要公告</div>
+        <div class="notice-content"><?= sysNotice ?></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="page-records" class="page"><div class="card" style="height:100%; display:flex; flex-direction:column; gap:8px;"><div style="background:#f8f9fa; padding:10px; border-radius:8px; display:flex; gap:8px; align-items: center;"><input type="text" id="searchKeyword" placeholder="🔍 品名/票號" style="flex:1.5; margin:0;"><input type="date" id="searchDate" style="flex:1; margin:0;">
+<select id="searchLocation" style="flex:1; margin:0;"><option value="">所有攤位</option></select>
+<select id="searchLimit" style="flex:0.8; margin:0;"><option value="20">20筆</option><option value="50">50筆</option><option value="100">100筆</option><option value="10000">全部</option></select><button id="performSearchBtn" onclick="performSearch()" style="background:var(--primary); color:white; border:none; padding:10px 15px; border-radius:8px; cursor:pointer; font-weight:bold;">搜尋</button><button id="pdfBtn" class="btn-download" onclick="downloadSalesPDF()" style="display:none;">📥 下載報表</button><button id="excelEmailBtn" class="btn-download" onclick="handleExcelEmail()" style="display:none; background:#2e7d32; margin-left:5px;">📧 寄送 Excel</button></div><div id="recordTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius:8px;"></div><div id="searchSummary" style="display:none; text-align:right; font-weight:bold; color:var(--danger); padding:5px; font-size:16px;">總計金額: <span id="searchResultTotal">$0</span></div></div></div>
+
+<div id="page-stock" class="page"><div class="card" style="height:100%; display:flex; flex-direction:column;"><h3 style="margin:0 0 10px 0; font-size:15px;">📦 庫存詳情清單 <span id="stockLocationLabel" style="font-size:13px; color:#1976d2; font-weight:bold;"></span></h3><div id="stockTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius:8px;"></div></div></div>
+
+<div id="page-admin" class="page" style="padding: 10px; height: 100%;">
+  <?!= include('Admin'); ?>
+</div>
+
+<div id="qr-modal" class="modal-overlay" onclick="closeQrModal(event)">
+  <div class="modal-content" style="height: auto; width: 320px; max-width: 90%; padding-bottom: 20px;">
+     <div class="modal-header"><span>📱 顧客顯示器配對</span><span class="close-btn" onclick="document.getElementById('qr-modal').style.display='none'">✕</span></div>
+     <div class="modal-body" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 20px;">
+       <div id="qrcode-container" style="margin-bottom: 15px; border: 5px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); min-height: 250px; display: flex; align-items: center; justify-content: center;"></div>
+       <div style="color:#666; font-size:14px; text-align:center; line-height:1.6;">請使用手機/平板掃描此碼<br>開啟顧客顯示畫面</div>
+     </div>
+  </div>
+</div>
+
+<div id="activity-modal" class="modal-overlay" onclick="closeActivityModal(event)">
+  <div class="modal-content">
+    <div class="modal-header"><span>📅 當前攤位活動詳情</span><span class="close-btn" onclick="document.getElementById('activity-modal').style.display='none'">✕</span></div>
+    <div class="modal-body" style="height:100%;">
+      <? if (activityUrl) { ?>
+        <iframe src="<?= activityUrl ?>" style="width:100%; height:100%; border:none;"></iframe>
+      <? } else { ?>
+        <div style="display:flex; align-items:center; justify-content:center; height:100%; color:#999;"><p>尚未設定活動內容 (請檢查 Settings!B4)</p></div>
+      <? } ?>
+    </div>
+  </div>
+</div>
+
+<div id="stamp-modal" class="modal-overlay" style="z-index: 10001;" onclick="if(event.target.id==='stamp-modal') closeStampModal()">
+  <div class="modal-content" style="height:auto; max-width:500px; overflow:visible;">
+    <div class="modal-header"><span>📮 選擇郵票面額</span><span class="close-btn" onclick="closeStampModal()">✕</span></div>
+    <div class="modal-body" style="padding:25px;"><div class="stamp-grid"><button class="btn-stamp" onclick="addStampToCart(1)">$1</button><button class="btn-stamp" onclick="addStampToCart(3)">$3</button><button class="btn-stamp" onclick="addStampToCart(5)">$5</button><button class="btn-stamp" onclick="addStampToCart(8)">$8</button><button class="btn-stamp" onclick="addStampToCart(15)">$15</button><button class="btn-stamp" onclick="addStampToCart(28)">$28</button><button class="btn-stamp" onclick="addStampToCart(35)">$35</button></div><hr style="border:0; border-top:1px dashed #ccc; margin:15px 0;"><div style="display:flex; gap:10px; align-items:center;"><label style="font-weight:bold; color:#555;">其他金額:</label><input type="number" id="stampInput" style="flex:1; font-size:20px; padding:10px;" onkeydown="if(event.key==='Enter') addManualStamp()"><button class="btn-save" style="width:auto; padding:10px 20px;" onclick="addManualStamp()">確認</button></div></div>
+  </div>
+</div>
+
+<footer><?= copyright ?> | <?= sysVersion ?></footer>
+<div id="toast"></div>
+
+<script>
+  let products = {}, cart = [], myUser = { role: "GUEST", account: "", location: "", locationList: [] };
+  let lastRecords = []; 
+
+  window.onload = () => {
+    const session = localStorage.getItem('pos_session');
+    if (session) {
+      myUser = JSON.parse(session);
+      applyLoginState(myUser);
+      const savedCart = localStorage.getItem('pos_cart');
+      if (savedCart) { cart = JSON.parse(savedCart); renderCart(); showToast("🔄 已恢復未完成的購物車"); }
+    } else {
+      const savedAcc = localStorage.getItem('pos_acc');
+      const savedPwd = localStorage.getItem('pos_pwd');
+      if (savedAcc && savedPwd) { document.getElementById('login-acc').value = savedAcc; document.getElementById('login-pwd').value = savedPwd; document.getElementById('remember-me').checked = true; }
+    }
+  };
+
+  function handleLogin() { 
+      const acc = document.getElementById('login-acc').value; 
+      const pwd = document.getElementById('login-pwd').value; 
+      const isRem = document.getElementById('remember-me').checked; 
+      if (!acc || !pwd) return; 
+      
+      const btn = document.getElementById('login-btn'); 
+      btn.innerText = "驗證中..."; btn.disabled = true; 
+      
+      google.script.run.withSuccessHandler(res => { 
+          btn.innerText = "登入系統"; btn.disabled = false; 
+          if (res.success) { 
+              myUser = res; 
+              if (isRem) { localStorage.setItem('pos_acc', acc); localStorage.setItem('pos_pwd', pwd); } 
+              else { localStorage.removeItem('pos_acc'); localStorage.removeItem('pos_pwd'); } 
+              
+              document.getElementById('login-overlay').style.display = 'none';
+              
+              const locSelect = document.getElementById('location-select');
+              if (res.locationList && res.locationList.length > 0) {
+                  locSelect.innerHTML = res.locationList.map(loc => `<option value="${loc}">${loc}</option>`).join('');
+              } else {
+                  locSelect.innerHTML = `<option value="預設攤位">無地點清單,使用預設攤位</option>`;
+              }
+              document.getElementById('location-overlay').style.display = 'flex';
+          } else { 
+              document.getElementById('login-msg').innerText = res.msg; 
+          } 
+      }).loginVerify(acc, pwd); 
+  }
+
+  function confirmLocation() {
+      const loc = document.getElementById('location-select').value;
+      myUser.location = loc;
+      localStorage.setItem('pos_session', JSON.stringify(myUser));
+      document.getElementById('location-overlay').style.display = 'none';
+      applyLoginState(myUser);
+  }
+
+  function applyLoginState(res) {
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('location-overlay').style.display = 'none';
+    
+    document.getElementById('display-branch').innerText = `${res.branchName} @ ${res.location || '預設攤位'}`; 
+    document.getElementById('stockLocationLabel').innerText = `(${res.location || '預設攤位'})`;
+    
+    document.getElementById('qrBtn').style.display = 'inline-block';
+    const rb = document.getElementById('display-role');
+    rb.innerText = res.role === "ADMIN" ? "管理員" : "支局";
+    rb.className = "role-badge " + (res.role === "ADMIN" ? "role-admin" : "role-staff");
+    document.getElementById('logoutBtn').style.display = 'inline-block';
+    document.getElementById('pdfBtn').style.display = 'block';
+    
+    // 🔥 3. 控制權限:只有 ADMIN 顯示後台按鈕
+    if (res.role === "ADMIN") {
+        document.getElementById('excelEmailBtn').style.display = 'block';
+        document.getElementById('nav-admin').style.display = 'block'; 
+    } else {
+        document.getElementById('excelEmailBtn').style.display = 'none';
+        document.getElementById('nav-admin').style.display = 'none';  
+    }
+    
+    const searchLoc = document.getElementById('searchLocation');
+    if (res.locationList && res.locationList.length > 0) {
+        searchLoc.innerHTML = '<option value="">所有攤位</option>' + res.locationList.map(l => `<option value="${l}" ${l===res.location?'selected':''}>${l}</option>`).join('');
+    }
+
+    // 🔥 請在這裡加入這行:強制每次登入都回到預設的收銀畫面
+    showPage('scan');
+
+    refreshProducts();
+    updateLastRecordPeek();
+  }
+
+  function handleLogout() { 
+    localStorage.removeItem('pos_session'); 
+    localStorage.removeItem('pos_cart'); 
+    myUser = { role: "GUEST", account: "", location: "" };
+    cart = [];
+    renderCart();
+
+    // 🔥 請在這裡加入這行:登出的瞬間也強制重置畫面
+    showPage('scan');
+
+    document.getElementById('display-branch').innerText = "未登入支局";
+    const rb = document.getElementById('display-role'); rb.innerText = "訪客"; rb.className = "role-badge";
+    document.getElementById('qrBtn').style.display = 'none';
+    document.getElementById('logoutBtn').style.display = 'none';
+    document.getElementById('pdfBtn').style.display = 'none';
+    document.getElementById('excelEmailBtn').style.display = 'none';
+    document.getElementById('nav-admin').style.display = 'none'; // 登出時隱藏後台按鈕
+    document.getElementById('last-record-box').style.display = 'none';
+
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('login-msg').innerText = "已成功登出";
+  }
+
+  function openQrModal() {
+    if (!myUser.branchName) return;
+    const modal = document.getElementById('qr-modal');
+    const container = document.getElementById('qrcode-container');
+    container.innerHTML = "載入中..."; modal.style.display = 'flex';
+    google.script.run.withSuccessHandler(function(url) {
+      if (!url) { container.innerHTML = "無法取得網址"; return; }
+      const combinedBranch = myUser.branchName + '_' + (myUser.location || '');
+      const cUrl = url + '?view=customer&branch=' + encodeURIComponent(combinedBranch);
+      container.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(cUrl) + '" style="width:100%; border-radius:4px;" />';
+    }).getWebAppUrl();
+  }
+  
+  function closeQrModal(e) { if (e.target.id === 'qr-modal') document.getElementById('qr-modal').style.display = 'none'; }
+  function openActivityModal() { document.getElementById('activity-modal').style.display = 'flex'; }
+  function closeActivityModal(e) { if (e.target.id === 'activity-modal') document.getElementById('activity-modal').style.display = 'none'; }
+
+  function updateLastRecordPeek() { 
+    if (!myUser.branchName) return; 
+    const box = document.getElementById('last-record-box'); 
+    const info = document.getElementById('last-record-info'); 
+    box.style.display = 'block'; 
+    google.script.run.withSuccessHandler(res => { 
+        if (res) info.innerHTML = `結帳時間:<b>${res.time}</b><br>銷售數量:<b>${res.count} 樣品項</b><br>收款金額:<b style="color:red;font-size:16px">$${Number(res.total).toLocaleString()}</b> ✅`; 
+        else info.innerText = "暫無此地點銷售紀錄"; 
+    }).getLastRecordInfo(myUser.branchName, myUser.role, myUser.location); 
+  }
+
+  function refreshProducts() { google.script.run.withSuccessHandler(data => { products = data; loadStock(); }).getAllProducts(myUser.location); }
+  
+  function showPage(p) { 
+    document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active')); 
+    document.getElementById('page-'+p).classList.add('active'); 
+    document.getElementById('nav-'+p).classList.add('active'); 
+    if(p === 'scan') setTimeout(() => document.getElementById('barcodeInput').focus(), 100); 
+    else if (p === 'records') setTimeout(() => document.getElementById('performSearchBtn').focus(), 100); 
+  }
+  
+  document.getElementById('barcodeInput').addEventListener('keypress', e => { if (e.key === 'Enter') { const code = e.target.value.trim().toUpperCase(); if (!code) return; if (code === 'STAMPS00') { openStampModal(); e.target.value = ''; return; } if (products[code]) { const current = cart.filter(item => item.id === code).length; if ((products[code].stock - current) <= 0) showToast("❌ 該地點庫存不足!"); else { cart.unshift({...products[code]}); renderCart(); showToast("✅ 已加入"); } } else showToast("❌ 找不到票號"); e.target.value = ''; } });
+  
+  function renderCart() { 
+    const tbody = document.getElementById('cartList'); let tTot = 0, sTot = 0, fTot = 0, pTot = 0; 
+    tbody.innerHTML = cart.map((item, i) => { const price = Number(item.price||0), stamp = Number(item.stamp||0), fee = Number(item.fee||0), total = Number(item.total||0); pTot += price; sTot += stamp; fTot += fee; tTot += total; return '<tr><td>' + (cart.length-i) + '</td><td>' + item.id + '</td><td>' + item.name + '</td><td>$' + price.toLocaleString() + '</td><td>$' + stamp.toLocaleString() + '</td><td>$' + fee.toLocaleString() + '</td><td style="font-weight:bold;color:var(--primary)">$' + total.toLocaleString() + '</td><td><span style="color:var(--danger);cursor:pointer;" onclick="cart.splice(' + i + ',1);renderCart()">✕</span></td></tr>'; }).join(''); 
+    document.getElementById('priceTotal').innerText = "$" + (pTot + fTot).toLocaleString(); document.getElementById('stampTotal').innerText = "$" + sTot.toLocaleString(); document.getElementById('feeTotal').innerText = "$" + fTot.toLocaleString(); document.getElementById('total').innerText = "$" + tTot.toLocaleString(); document.getElementById('count').innerText = cart.length; 
+    if (cart.length > 0) localStorage.setItem('pos_cart', JSON.stringify(cart)); else localStorage.removeItem('pos_cart');
+    const combinedBranch = myUser.branchName + '_' + (myUser.location || '');
+    if (myUser.branchName) google.script.run.syncToCloud(combinedBranch, { type: 'update', cart: cart }); 
+  }
+  
+  function submitOrder() { if (cart.length === 0 || myUser.role === "GUEST") return; const btn = document.getElementById('saveBtn'); btn.innerText = "⏳ 存檔中..."; btn.style.backgroundColor = "#ef6c00"; btn.disabled = true; google.script.run.withSuccessHandler(res => { btn.innerText = "確認存檔 or 空白鍵Space"; btn.style.backgroundColor = ""; btn.disabled = false; if(res === "OK") { showToast("✅ 存檔成功"); const combinedBranch = myUser.branchName + '_' + (myUser.location || ''); if (myUser.branchName) google.script.run.syncToCloud(combinedBranch, { type: 'finish' }); cart = []; localStorage.removeItem('pos_cart'); renderCart(); refreshProducts(); updateLastRecordPeek(); document.getElementById('invoiceInput').value = ''; setTimeout(() => document.getElementById('barcodeInput').focus(), 100); } else alert("存檔失敗: " + res); }).saveOrder(cart, document.getElementById('invoiceInput').value, myUser.branchName, myUser.role, myUser.account, myUser.location); }
+  
+  function performSearch() { const area = document.getElementById('recordTableArea'); area.innerHTML = '<div style="text-align:center; padding:30px;">⌛ 搜尋中...</div>'; const kw = document.getElementById('searchKeyword').value.trim().toUpperCase(); const date = document.getElementById('searchDate').value; const limit = document.getElementById('searchLimit').value; const locFilter = document.getElementById('searchLocation').value; google.script.run.withSuccessHandler(res => { if (!res.records || res.records.length === 0) { area.innerHTML = '<div style="text-align:center; padding:30px;">無資料</div>'; lastRecords = []; return; } lastRecords = res.records; let total = 0; let uniqueOrders = new Set(); const canManage = (myUser.role === "ADMIN" || myUser.role === "STAFF"); let html = '<table><thead><tr><th>#</th><th>時間</th><th>票號</th><th>品名</th><th style="text-align:right">單價</th><th style="text-align:right">郵票</th><th style="text-align:right">售價</th>' + (canManage ? '<th>管理</th>' : '') + '</tr></thead><tbody>'; res.records.forEach((r, i) => { total += Number(r[6]); uniqueOrders.add(r[0]); const delBtn = canManage ? '<td align="center"><button class="btn-delete" onclick="handleDeleteRecord(\'' + r[0] + '\', \'' + r[1] + '\')" style="background:#ffebee; color:#c62828; border:1px solid #ffcdd2; border-radius:4px; cursor:pointer; padding:2px 6px;">🗑️ 刪除</button></td>' : ''; html += '<tr><td>' + (i+1) + '</td><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td align="right">$' + Number(r[3]).toLocaleString() + '</td><td align="right">$' + Number(r[4]).toLocaleString() + '</td><td align="right" style="color:red;font-weight:bold">$' + Number(r[6]).toLocaleString() + '</td>' + delBtn + '</tr>'; }); area.innerHTML = html + '</tbody></table>'; document.getElementById('searchResultTotal').innerText = uniqueOrders.size + " 筆訂單 / $" + total.toLocaleString(); document.getElementById('searchSummary').style.display = "block"; }).getSalesRecordsOptimized(kw, date, limit, myUser.branchName, myUser.role, locFilter); }
+  
+  function handleDeleteRecord(tStr, tId) { if (!confirm("⚠️ 警告:確定要刪除此筆資料?庫存將退回原發售地點。")) return; google.script.run.withSuccessHandler(res => { if (res === "OK") { showToast("🗑️ 已刪除"); performSearch(); refreshProducts(); } else alert(res); }).deleteSalesRecord(tStr, tId, myUser.role, myUser.branchName); }
+  
+  function downloadSalesPDF() { if (!lastRecords || lastRecords.length === 0) return; const btn = document.getElementById('pdfBtn'); btn.innerText = "⌛ 生成中..."; btn.disabled = true; let sumP = 0, sumS = 0, sumF = 0, sumT = 0; let salesMap = {}; lastRecords.forEach(r => { sumP += Number(r[3]||0); sumS += Number(r[4]||0); sumF += Number(r[5]||0); sumT += Number(r[6]||0); const pId = r[1], pName = r[2], key = pId === 'STAMPS00' ? pId + '_' + pName : pId; if (!salesMap[key]) salesMap[key] = { id: pId, name: pName, qty: 0 }; salesMap[key].qty++; }); let sortedList = Object.values(salesMap).sort((a,b)=>((products[a.id])?products[a.id].rowOrder:9999)-((products[b.id])?products[b.id].rowOrder:9999)); let conMap = {}; Object.values(products).forEach(p => { conMap[p.id] = 0; }); lastRecords.forEach(r => { const pId = r[1]; let prod = products[pId]; if (prod) { if (prod.isBundle && prod.bom) { let comps = frontendParseBOM(prod.bom); comps.forEach(c => { conMap[c.id] = (conMap[c.id] || 0) + c.qty; }); } else { conMap[pId] = (conMap[pId] || 0) + 1; } } }); const locName = document.getElementById('searchLocation').value || "全部攤位"; const fileName = (myUser.branchName || "Report") + "_" + locName + "_" + new Date().getTime(); let printHtml = '<html><head><title>' + fileName + '</title><style>body{font-family:"Microsoft JhengHei",sans-serif;padding:15px;color:#333}h2{text-align:center;margin-bottom:5px}p.info{font-size:11px;text-align:center;color:#666;margin-top:0;margin-bottom:15px}.section-title{font-weight:bold;font-size:14px;margin-bottom:8px;border-left:4px solid #333;padding-left:10px;background:#f5f5f5;padding-top:4px;padding-bottom:4px}table{width:100%;border-collapse:collapse;margin-bottom:15px}th,td{border:1px solid #000;padding:5px;font-size:10px}th{background-color:#f2f2f2}.money{text-align:right}.center{text-align:center}.summary-container{border:2px solid #000;padding:15px;margin-top:10px}.sum-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.total-row{border-top:1px dashed #ccc;margin-top:10px;padding-top:10px;display:flex;justify-content:flex-end;align-items:center}.total-value{color:#d32f2f;font-weight:bold;font-size:20px}.page-break{page-break-after:always}</style></head><body><h2>商品銷售報表 - ' + (myUser.branchName || "總表") + '</h2><p class="info">攤位: ' + locName + ' | 日期: ' + (document.getElementById('searchDate').value || "所有") + ' | 經辦: ' + myUser.account + '</p><div class="section-title">📦 銷售品項統計</div><table><thead><tr><th>#</th><th>票號</th><th>品名</th><th>數量</th></tr></thead><tbody>'; sortedList.forEach((p, i) => { printHtml += '<tr><td class="center">' + (i+1) + '</td><td class="center">' + p.id + '</td><td>' + p.name + '</td><td class="center">' + p.qty + '</td></tr>'; }); printHtml += '</tbody></table><div class="section-title">🏭 實際庫存扣除統計</div><table><thead><tr><th>#</th><th>票號</th><th>品名</th><th>扣除數</th></tr></thead><tbody>'; let t2Seq = 1; Object.values(products).sort((a,b)=>a.rowOrder-b.rowOrder).forEach(p => { const c = conMap[p.id] || 0; if(c > 0) printHtml += '<tr><td class="center">' + (t2Seq++) + '</td><td class="center">' + p.id + '</td><td>' + p.name + '</td><td class="center" style="color:blue">' + c + '</td></tr>'; }); printHtml += '</tbody></table><div class="summary-container"><div class="sum-grid"><div>總筆數:' + lastRecords.length + '</div><div>單價總計:$' + sumP.toLocaleString() + '</div><div>郵票總計:$' + sumS.toLocaleString() + '</div><div>製作費:$' + sumF.toLocaleString() + '</div></div><div class="total-row">銷售總金額:<span class="total-value">$' + sumT.toLocaleString() + '</span></div></div><div class="page-break"></div><div class="section-title">📜 詳細銷售明細</div><table><thead><tr><th>#</th><th>時間</th><th>票號</th><th>品名</th><th>地點</th><th class="money">售價</th></tr></thead><tbody>'; lastRecords.forEach((r, i) => { printHtml += '<tr><td class="center">' + (i+1) + '</td><td class="center">' + r[0] + '</td><td class="center">' + r[1] + '</td><td>' + r[2] + '</td><td class="center">' + (r[10]||'') + '</td><td class="money">$' + Number(r[6]).toLocaleString() + '</td></tr>'; }); printHtml += '</tbody></table></body></html>'; const win = window.open('', '_blank'); win.document.write(printHtml); win.document.close(); setTimeout(() => { win.print(); win.close(); btn.innerText = "📥 下載報表"; btn.disabled = false; }, 500); }
+  
+  function handleExcelEmail() { if (lastRecords.length === 0) return; const btn = document.getElementById('excelEmailBtn'); btn.innerText = "📧 寄送中..."; btn.disabled = true; google.script.run.withSuccessHandler(res => { btn.innerText = "📧 寄送 Excel"; btn.disabled = false; if (res === "OK") showToast("✅ 報表已寄出"); else alert(res); }).sendExcelToEmail(document.getElementById('searchKeyword').value, document.getElementById('searchDate').value, myUser.branchName, document.getElementById('searchLocation').value); }
+  
+  function loadStock() { const area = document.getElementById('stockTableArea'); let list = Object.values(products).sort((a,b) => a.rowOrder - b.rowOrder); let html = '<table><thead><tr><th>#</th><th>票號</th><th>品名</th><th>庫存</th>' + (myUser.role==="ADMIN"?'<th>操作</th>':'') + '</tr></thead><tbody>'; list.forEach((p, i) => { const low = (p.stock < 5) ? 'color:red;font-weight:bold;' : ''; const disp = p.isBundle ? '<span style="color:blue;font-weight:bold">' + p.stock + ' (限)</span>' : '<span style="' + low + '">' + p.stock + '</span>'; let btn = (myUser.role==="ADMIN") ? '<td><button onclick="doRestock(\'' + p.id + '\',\'' + p.name + '\')">補貨</button></td>' : ''; html += '<tr><td>' + (i+1) + '</td><td>' + p.id + '</td><td>' + p.name + '</td><td>' + disp + '</td>' + btn + '</tr>'; }); area.innerHTML = html + '</tbody></table>'; }
+  
+  function doRestock(id, name) { 
+    const qty = prompt(`[${name}] 補入 ${myUser.location || '預設攤位'} 的數量:`, "10"); 
+    if (qty && !isNaN(qty)) {
+      showToast("⏳ 補貨處理中..."); 
+      google.script.run.withSuccessHandler((res) => {
+        if(res === "OK") {
+          refreshProducts(); 
+          showToast("✅ 補貨成功!"); 
+        } else {
+          alert("補貨失敗: " + res);
+        }
+      }).addStock(id, qty, myUser.account, myUser.location); 
+    } 
+  }
+  
+  function frontendParseBOM(str) { let res = []; if(!str) return res; let parts = str.split(','); for(let i=0; i<parts.length; i++) { let pair = parts[i].split(':'); if(pair.length === 2) res.push({id: pair[0].trim(), qty: parseInt(pair[1].trim())}); } return res; }
+  function openStampModal() { document.getElementById('stamp-modal').style.display = 'flex'; setTimeout(() => { const i = document.getElementById('stampInput'); i.value = ''; i.focus(); }, 100); }
+  function closeStampModal() { document.getElementById('stamp-modal').style.display = 'none'; }
+  function addStampToCart(amt) { const a = parseInt(amt); if (!a || a <= 0) return; cart.unshift({ id: 'STAMPS00', name: '郵票 ($' + a + ')', price: 0, stamp: a, fee: 0, total: a, stock: 9999, isBundle: false }); renderCart(); closeStampModal(); showToast("✅ 已加入郵票 $" + a); }
+  function addManualStamp() { const v = document.getElementById('stampInput').value; if(v) addStampToCart(v); }
+  function showToast(m) { const t = document.getElementById("toast"); t.innerText = m; t.className = "show"; setTimeout(() => t.className = "", 3000); }
+  document.addEventListener('keydown', e => { if (e.code === 'Space' && document.getElementById('page-scan').classList.contains('active')) { e.preventDefault(); document.getElementById('saveBtn').click(); } });
+</script>
+
+</body>
+</html>
