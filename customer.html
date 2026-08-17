@@ -7,6 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
     :root {
@@ -83,6 +84,7 @@
     .success-overlay .success-text { font-size: var(--fs-xl); font-weight: 700; }
     .text-center { text-align: center; }
     .text-right { text-align: right; }
+    .fa-solid { margin-right: 6px; }
   </style>
 </head>
 <body>
@@ -90,7 +92,7 @@
 
   <div class="content">
     <div id="emptyState" class="empty-state">
-      <div class="empty-icon">🛒</div>
+      <div class="empty-icon"><i class="fa-solid fa-cart-shopping"></i></div>
       <div>等待同步中...</div>
     </div>
     <table id="itemTable" style="display:none;">
@@ -112,7 +114,7 @@
   </div>
 
   <div id="successOverlay" class="success-overlay">
-    <div class="success-icon">✅</div>
+    <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
     <div class="success-text">謝謝惠顧</div>
   </div>
 
@@ -126,7 +128,7 @@
     let successUntil = 0; // 結帳成功畫面顯示期間(4秒),忽略緊接著清空購物車送出的 update,避免畫面被蓋掉
 
     if (!myBranch) {
-      document.getElementById('emptyState').innerHTML = "❌ 網址缺少 branch 參數";
+      document.getElementById('emptyState').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 網址缺少 branch 參數";
     } else {
       const channel = supabaseClient.channel(`pos:${myBranch}`);
       channel.on('broadcast', { event: 'update' }, ({ payload }) => {

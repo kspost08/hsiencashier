@@ -8,6 +8,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,11 +53,11 @@
     .btn-delete { background:#ffebee; color:#c62828; border:1px solid #ffcdd2; border-radius: var(--radius-sm); cursor:pointer; padding: var(--sp-1) var(--sp-2); font-family: inherit; font-size: var(--fs-sm); }
     .btn-delete:hover { background:#ffcdd2; }
 
-    /* 小型 ⓘ 說明圖示,hover/focus(觸控可點一下取得 focus)顯示提示框,純 CSS 不用額外 JS */
+    /* 小型 fa-circle-info 說明圖示,hover/focus(觸控可點一下取得 focus)顯示提示框,純 CSS 不用額外 JS。
+       fa-circle-info 圖示本身就是圓圈+i 的圖案,所以這裡不另外畫圓底,只上色。 */
     .info-tip {
       display:inline-flex; align-items:center; justify-content:center;
-      width:16px; height:16px; border-radius:50%;
-      background:#90a4ae; color:#fff; font-size:11px; font-weight:700;
+      color:#90a4ae; font-size:15px;
       cursor:help; margin-left:4px; position:relative; vertical-align:middle;
     }
     .info-tip:hover::after, .info-tip:focus::after {
@@ -70,6 +71,9 @@
       content:''; position:absolute; left:50%; bottom:100%; transform:translateX(-50%);
       border:5px solid transparent; border-top-color:#37474f; z-index:50;
     }
+
+    /* Font Awesome icon 跟後面接的文字之間留一點空隙;純圖示按鈕(如關閉的 ✕)多一點右邊留白無影響 */
+    .fa-solid { margin-right: 6px; }
 
     /* 一組共用按鈕基底,.btn-save/.btn-qr/.btn-activity/.btn-logout/.btn-stamp/.admin-btn* 都是它的變化版 */
     .btn-base { border: none; border-radius: var(--radius-sm); font-family: inherit; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; }
@@ -227,14 +231,14 @@
     <div id="login-msg"></div>
   </div>
   <div class="login-footnote">
-    <p class="title">🛠️ 系統維護資訊</p>
+    <p class="title"><i class="fa-solid fa-screwdriver-wrench"></i> 系統維護資訊</p>
     <p class="sub">系統問題請洽高雄郵局企劃行銷科 鄭家弦</p>
     <p class="version">系統版本號:<span id="sysVersionDisplay">dev</span></p>
   </div>
 </div>
 
 <div id="location-overlay" style="display:none;">
-  <h2 class="login-title" style="font-size: var(--fs-2xl);">📍 選擇執勤攤位</h2>
+  <h2 class="login-title" style="font-size: var(--fs-2xl);"><i class="fa-solid fa-location-dot"></i> 選擇執勤攤位</h2>
   <div class="login-box">
     <select id="location-select" style="font-size: var(--fs-lg); padding: var(--sp-4); margin-bottom: var(--sp-5); text-align:center;">
         <option value="">載入中...</option>
@@ -244,20 +248,20 @@
 </div>
 
 <div class="user-bar">
-  <div>📍 <span id="display-branch">未登入支局</span></div>
+  <div><i class="fa-solid fa-location-dot"></i> <span id="display-branch">未登入支局</span></div>
   <div class="user-info-right">
-    <button id="qrBtn" class="btn-qr" onclick="openQrModal()" style="display:none;">📱 客顯連結</button>
-    <button class="btn-activity" onclick="openActivityModal()">📅 攤位活動公告</button>
-    <button id="logoutBtn" class="btn-logout" onclick="handleLogout()" style="display:none;">登出 ➔</button>
+    <button id="qrBtn" class="btn-qr" onclick="openQrModal()" style="display:none;"><i class="fa-solid fa-qrcode"></i> 客顯連結</button>
+    <button class="btn-activity" onclick="openActivityModal()"><i class="fa-solid fa-calendar-days"></i> 攤位活動公告</button>
+    <button id="logoutBtn" class="btn-logout" onclick="handleLogout()" style="display:none;">登出 <i class="fa-solid fa-arrow-right-from-bracket"></i></button>
     <span id="display-role" class="role-badge">訪客</span>
   </div>
 </div>
 
 <nav>
-  <button id="nav-scan" class="active" onclick="showPage('scan')">🛒 掃描收銀</button>
-  <button id="nav-records" onclick="showPage('records')">📜 銷售紀錄</button>
-  <button id="nav-stock" onclick="showPage('stock')">📦 庫存管理</button>
-  <button id="nav-admin" onclick="showPage('admin'); AdminSystem.init();" style="display:none; color:var(--admin-color);">⚙️ 系統後台</button>
+  <button id="nav-scan" class="active" onclick="showPage('scan')"><i class="fa-solid fa-cart-shopping"></i> 掃描收銀</button>
+  <button id="nav-records" onclick="showPage('records')"><i class="fa-solid fa-receipt"></i> 銷售紀錄</button>
+  <button id="nav-stock" onclick="showPage('stock')"><i class="fa-solid fa-box"></i> 庫存管理</button>
+  <button id="nav-admin" onclick="showPage('admin'); AdminSystem.init();" style="display:none; color:var(--admin-color);"><i class="fa-solid fa-gear"></i> 系統後台</button>
 </nav>
 
 <div id="page-scan" class="page active">
@@ -292,12 +296,12 @@
       <button class="btn-save" id="saveBtn" onclick="submitOrder()">確認存檔 or 空白鍵Space</button>
 
       <div id="last-record-box" style="margin-top: var(--sp-3); background:#e0f2f1; border:1px solid #b2dfdb; border-radius: var(--radius-md); padding: var(--sp-3); font-size: var(--fs-sm); color:#00695c; display:none;">
-          <div class="text-bold" style="margin-bottom: var(--sp-1); border-bottom:1px solid #b2dfdb;">🛡️ 最後存檔檢查</div>
+          <div class="text-bold" style="margin-bottom: var(--sp-1); border-bottom:1px solid #b2dfdb;"><i class="fa-solid fa-shield-halved"></i> 最後存檔檢查</div>
           <div id="last-record-info">讀取中...</div>
       </div>
 
       <div id="notice-container">
-        <div class="notice-header">📢 攤位重要公告</div>
+        <div class="notice-header"><i class="fa-solid fa-bullhorn"></i> 攤位重要公告</div>
         <div class="notice-content" id="noticeContent"></div>
       </div>
     </div>
@@ -306,23 +310,23 @@
 
 <div id="page-records" class="page"><div class="card" style="height:100%; display:flex; flex-direction:column; gap: var(--sp-2);"><div style="background:#f8f9fa; padding: var(--sp-3); border-radius: var(--radius-sm); display:flex; gap: var(--sp-2); align-items: center;"><input type="text" id="searchKeyword" placeholder="🔍 品名/票號" style="flex:1.5; margin:0;"><input type="date" id="searchDate" style="flex:1; margin:0;">
 <select id="searchLocation" style="flex:1; margin:0;"><option value="">所有攤位</option></select>
-<select id="searchLimit" style="flex:0.8; margin:0;"><option value="20">20筆</option><option value="50">50筆</option><option value="100">100筆</option><option value="10000">全部</option></select><button id="performSearchBtn" class="btn-base btn-download" onclick="performSearch()">搜尋</button><button id="pdfBtn" class="btn-base btn-download" onclick="downloadSalesPDF()" style="display:none;">📥 下載報表</button><button id="excelEmailBtn" class="btn-base btn-download" onclick="handleExcelEmail()" style="display:none; background:#2e7d32; margin-left: var(--sp-2);">📧 寄送 Excel</button></div><div id="recordTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius: var(--radius-sm);"></div><div id="searchSummary" class="text-right text-bold text-danger" style="display:none; padding: var(--sp-2); font-size: var(--fs-lg);">總計金額: <span id="searchResultTotal">$0</span></div></div></div>
+<select id="searchLimit" style="flex:0.8; margin:0;"><option value="20">20筆</option><option value="50">50筆</option><option value="100">100筆</option><option value="10000">全部</option></select><button id="performSearchBtn" class="btn-base btn-download" onclick="performSearch()">搜尋</button><button id="pdfBtn" class="btn-base btn-download" onclick="downloadSalesPDF()" style="display:none;"><i class="fa-solid fa-download"></i> 下載報表</button><button id="excelEmailBtn" class="btn-base btn-download" onclick="handleExcelEmail()" style="display:none; background:#2e7d32; margin-left: var(--sp-2);"><i class="fa-solid fa-envelope"></i> 寄送 Excel</button></div><div id="recordTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius: var(--radius-sm);"></div><div id="searchSummary" class="text-right text-bold text-danger" style="display:none; padding: var(--sp-2); font-size: var(--fs-lg);">總計金額: <span id="searchResultTotal">$0</span></div></div></div>
 
-<div id="page-stock" class="page"><div class="card" style="height:100%; display:flex; flex-direction:column;"><h3 style="margin:0 0 var(--sp-2) 0; font-size: var(--fs-md);">📦 庫存詳情清單 <span id="stockLocationLabel" class="text-primary text-bold" style="font-size: var(--fs-sm);"></span></h3><div id="stockTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius: var(--radius-sm);"></div></div></div>
+<div id="page-stock" class="page"><div class="card" style="height:100%; display:flex; flex-direction:column;"><h3 style="margin:0 0 var(--sp-2) 0; font-size: var(--fs-md);"><i class="fa-solid fa-box"></i> 庫存詳情清單 <span id="stockLocationLabel" class="text-primary text-bold" style="font-size: var(--fs-sm);"></span></h3><div id="stockTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius: var(--radius-sm);"></div></div></div>
 
 <div id="page-admin" class="page" style="padding: 10px; height: 100%;">
 
   <div class="admin-layout">
 
     <div class="admin-sidebar">
-      <div class="admin-sidebar-title">⚙️ 系統管理後台</div>
-      <button class="admin-tab active" onclick="AdminSystem.switchTab('settings')">⚙️ 系統設定</button>
-      <button class="admin-tab" onclick="AdminSystem.switchTab('users')">👥 帳號管理</button>
-      <button class="admin-tab" onclick="AdminSystem.switchTab('products')">🏷️ 商品維護</button>
-      <button class="admin-tab" onclick="AdminSystem.switchTab('schedule')">📅 排程補貨</button>
-      <button class="admin-tab" onclick="AdminSystem.switchTab('logs')">📦 進退庫誌</button>
-      <button class="admin-tab" onclick="AdminSystem.switchTab('reports')">📊 銷售報表</button>
-      <button class="admin-tab" onclick="AdminSystem.switchTab('reserved')">🛠️ 預留功能</button>
+      <div class="admin-sidebar-title"><i class="fa-solid fa-gear"></i> 系統管理後台</div>
+      <button class="admin-tab active" onclick="AdminSystem.switchTab('settings')"><i class="fa-solid fa-gear"></i> 系統設定</button>
+      <button class="admin-tab" onclick="AdminSystem.switchTab('users')"><i class="fa-solid fa-users"></i> 帳號管理</button>
+      <button class="admin-tab" onclick="AdminSystem.switchTab('products')"><i class="fa-solid fa-tag"></i> 商品維護</button>
+      <button class="admin-tab" onclick="AdminSystem.switchTab('schedule')"><i class="fa-solid fa-calendar-days"></i> 排程補貨</button>
+      <button class="admin-tab" onclick="AdminSystem.switchTab('logs')"><i class="fa-solid fa-box"></i> 進退庫誌</button>
+      <button class="admin-tab" onclick="AdminSystem.switchTab('reports')"><i class="fa-solid fa-chart-column"></i> 銷售報表</button>
+      <button class="admin-tab" onclick="AdminSystem.switchTab('reserved')"><i class="fa-solid fa-screwdriver-wrench"></i> 預留功能</button>
     </div>
 
     <div class="admin-content">
@@ -335,12 +339,12 @@
           <div class="admin-form-group"><label>攤位重要公告</label><textarea id="admin-set-notice" class="admin-textarea"></textarea></div>
           <div class="admin-form-group"><label>活動網址 / iframe</label><input type="text" id="admin-set-url" class="admin-input"></div>
           <div class="admin-form-group"><label>報表接收 Email</label><input type="text" id="admin-set-email" class="admin-input"></div>
-          <button class="admin-btn" id="admin-save-settings-btn" onclick="AdminSystem.saveSettings()">💾 儲存設定並同步</button>
+          <button class="admin-btn" id="admin-save-settings-btn" onclick="AdminSystem.saveSettings()"><i class="fa-solid fa-floppy-disk"></i> 儲存設定並同步</button>
         </div>
 
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3>📍 攤位清單</h3>
+            <h3><i class="fa-solid fa-location-dot"></i> 攤位清單</h3>
             <button class="admin-btn admin-btn-sm" onclick="AdminSystem.addLocation()">+ 新增攤位</button>
           </div>
           <div id="admin-locations-list">載入中...</div>
@@ -350,7 +354,7 @@
       <div id="admin-panel-users" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3>👥 帳號管理清單</h3>
+            <h3><i class="fa-solid fa-users"></i> 帳號管理清單</h3>
             <button class="admin-btn admin-btn-sm" onclick="AdminSystem.openUserModal()">+ 新增帳號</button>
           </div>
           <!-- 不顯示密碼欄位:密碼全部交給 Supabase Auth 管理,這裡只能重設密碼,不能看/改明碼。 -->
@@ -360,7 +364,7 @@
 
       <div id="admin-panel-products" class="admin-panel">
         <div class="admin-card">
-          <div class="admin-card-header"><h3>📤 匯入商品主檔</h3></div>
+          <div class="admin-card-header"><h3><i class="fa-solid fa-upload"></i> 匯入商品主檔</h3></div>
           <p class="admin-note">上傳票品主檔 Excel(可一次選多個檔案),會依「類別+票品+票號」組成票號寫入主檔;已存在的票號會跳過,不會覆蓋。</p>
           <input type="file" id="master-upload-input" accept=".xlsx" multiple class="admin-input">
           <button class="admin-btn" id="master-upload-btn" onclick="AdminSystem.uploadMasterFiles()">上傳並匯入</button>
@@ -369,69 +373,69 @@
 
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3>🏷️ 商品與初始庫存維護</h3>
+            <h3><i class="fa-solid fa-tag"></i> 商品與初始庫存維護</h3>
             <button class="admin-btn admin-btn-sm" onclick="AdminSystem.openProductModal()">+ 新增商品</button>
           </div>
           <div id="admin-products-table-container">載入中...</div>
         </div>
       </div>
 
-      <div id="admin-panel-records" class="admin-panel"><div class="admin-card"><h3>📜 銷售紀錄檢視</h3><p class="admin-note">🚧 模組建置中...</p></div></div>
+      <div id="admin-panel-records" class="admin-panel"><div class="admin-card"><h3><i class="fa-solid fa-receipt"></i> 銷售紀錄檢視</h3><p class="admin-note"><i class="fa-solid fa-hammer"></i> 模組建置中...</p></div></div>
 
       <div id="admin-panel-schedule" class="admin-panel">
         <div class="admin-card">
-          <h3>📅 排程補貨</h3>
+          <h3><i class="fa-solid fa-calendar-days"></i> 排程補貨</h3>
           <p class="admin-note">這版只做「每日排程補貨」(讀 schedule_stock、寫 product_stock,pg_cron 執行)。</p>
           <p class="admin-note">外部「票券股配票總庫」跨庫轉檔橋接功能不在這次遷移範圍內,不實作對應 UI。</p>
         </div>
       </div>
 
-      <div id="admin-panel-logs" class="admin-panel"><div class="admin-card"><h3>📦 進退庫日誌</h3><p class="admin-note">🚧 模組建置中...</p></div></div>
-      <div id="admin-panel-reserved" class="admin-panel"><div class="admin-card"><h3>🛠️ 預留擴充區</h3><p class="admin-note">🚧 模組建置中...</p></div></div>
+      <div id="admin-panel-logs" class="admin-panel"><div class="admin-card"><h3><i class="fa-solid fa-box"></i> 進退庫日誌</h3><p class="admin-note"><i class="fa-solid fa-hammer"></i> 模組建置中...</p></div></div>
+      <div id="admin-panel-reserved" class="admin-panel"><div class="admin-card"><h3><i class="fa-solid fa-screwdriver-wrench"></i> 預留擴充區</h3><p class="admin-note"><i class="fa-solid fa-hammer"></i> 模組建置中...</p></div></div>
 
       <div id="admin-panel-reports" class="admin-panel">
 
         <div class="admin-card" style="display:flex; gap: var(--sp-3); align-items:center; background:#e8eaf6; border-color:#c5cae9;">
-          <span class="text-bold" style="color:#283593;">📅 條件篩選:</span>
+          <span class="text-bold" style="color:#283593;"><i class="fa-solid fa-calendar-days"></i> 條件篩選:</span>
           <input type="date" id="admin-report-start" class="admin-input" style="width:140px; margin:0;">
           <span style="color:#5c6bc0;">至</span>
           <input type="date" id="admin-report-end" class="admin-input" style="width:140px; margin:0;">
 
-          <span class="text-bold" style="color:#283593; margin-left: var(--sp-3);">📍 地點:</span>
+          <span class="text-bold" style="color:#283593; margin-left: var(--sp-3);"><i class="fa-solid fa-location-dot"></i> 地點:</span>
           <select id="admin-report-loc" class="admin-select" style="width:160px; margin:0;">
             <option value="">所有攤位</option>
           </select>
 
-          <button class="admin-btn" onclick="AdminSystem.loadReports()" style="background:#3949ab; margin-left: var(--sp-3);">🔍 產生報表</button>
+          <button class="admin-btn" onclick="AdminSystem.loadReports()" style="background:#3949ab; margin-left: var(--sp-3);"><i class="fa-solid fa-magnifying-glass"></i> 產生報表</button>
           <button class="admin-btn-outline admin-btn-sm" onclick="document.getElementById('admin-report-start').value=''; document.getElementById('admin-report-end').value=''; document.getElementById('admin-report-loc').value=''; AdminSystem.loadReports();" style="padding: var(--sp-3); margin-left:auto;">重置條件</button>
         </div>
 
         <div class="kpi-grid">
           <div class="admin-card kpi-card">
-            <div class="kpi-label">💰 銷售總金額 (應收)</div>
+            <div class="kpi-label"><i class="fa-solid fa-sack-dollar"></i> 銷售總金額 (應收)</div>
             <div id="admin-rep-sumT" class="kpi-value text-danger">$0</div>
           </div>
           <div class="admin-card kpi-card">
-            <div class="kpi-label">🧾 總交易筆數</div>
+            <div class="kpi-label"><i class="fa-solid fa-file-invoice"></i> 總交易筆數</div>
             <div id="admin-rep-orders" class="kpi-value" style="color:#1976d2;">0</div>
           </div>
           <div class="admin-card kpi-card">
-            <div class="kpi-label">🏷️ 單價總計 (發票)</div>
+            <div class="kpi-label"><i class="fa-solid fa-tag"></i> 單價總計 (發票)</div>
             <div id="admin-rep-sumP" class="kpi-value" style="color:#f57c00;">$0</div>
           </div>
           <div class="admin-card kpi-card">
-            <div class="kpi-label">📮 郵票總計 (購票)</div>
+            <div class="kpi-label"><i class="fa-solid fa-stamp"></i> 郵票總計 (購票)</div>
             <div id="admin-rep-sumS" class="kpi-value" style="color:#0288d1;">$0</div>
           </div>
           <div class="admin-card kpi-card">
-            <div class="kpi-label">🛠️ 製作費總計</div>
+            <div class="kpi-label"><i class="fa-solid fa-screwdriver-wrench"></i> 製作費總計</div>
             <div id="admin-rep-sumF" class="kpi-value" style="color:#388e3c;">$0</div>
           </div>
         </div>
 
         <div class="report-grid">
           <div class="admin-card report-panel">
-            <h3>📦 銷售品項統計 <span class="section-sub-label">(顧客結帳的商品)</span></h3>
+            <h3><i class="fa-solid fa-box"></i> 銷售品項統計 <span class="section-sub-label">(顧客結帳的商品)</span></h3>
             <div class="report-panel-body">
               <table class="admin-table">
                 <thead><tr><th>#</th><th>票號</th><th>品名</th><th class="text-center">數量</th></tr></thead>
@@ -441,7 +445,7 @@
           </div>
 
           <div class="admin-card report-panel">
-            <h3>🏭 實際庫存扣除統計 <span class="section-sub-label">(含組合包BOM展開)</span></h3>
+            <h3><i class="fa-solid fa-industry"></i> 實際庫存扣除統計 <span class="section-sub-label">(含組合包BOM展開)</span></h3>
             <div class="report-panel-body">
               <table class="admin-table">
                 <thead><tr><th>#</th><th>票號</th><th>品名</th><th class="text-center">扣除數</th></tr></thead>
@@ -454,7 +458,7 @@
 
       <div id="admin-user-modal" class="admin-modal-overlay">
         <div class="admin-modal" style="width: 400px;">
-          <div class="admin-modal-header"><span id="admin-user-modal-title">新增帳號</span><span style="cursor:pointer;" onclick="AdminSystem.closeUserModal()">✕</span></div>
+          <div class="admin-modal-header"><span id="admin-user-modal-title">新增帳號</span><span style="cursor:pointer;" onclick="AdminSystem.closeUserModal()"><i class="fa-solid fa-xmark"></i></span></div>
           <div class="admin-modal-body">
             <input type="hidden" id="admin-user-old-acc">
             <input type="hidden" id="admin-user-action">
@@ -472,7 +476,7 @@
 
       <div id="admin-product-modal" class="admin-modal-overlay">
         <div class="admin-modal">
-          <div class="admin-modal-header"><span id="admin-product-modal-title">新增商品</span><span style="cursor:pointer;" onclick="AdminSystem.closeProductModal()">✕</span></div>
+          <div class="admin-modal-header"><span id="admin-product-modal-title">新增商品</span><span style="cursor:pointer;" onclick="AdminSystem.closeProductModal()"><i class="fa-solid fa-xmark"></i></span></div>
           <div class="admin-modal-body">
             <input type="hidden" id="admin-product-old-id">
             <input type="hidden" id="admin-product-action">
@@ -482,7 +486,7 @@
                 <label>票號 (ID) <span class="text-danger">*</span></label>
                 <div style="display:flex; gap:5px;">
                   <input type="text" id="admin-prod-id" class="admin-input" placeholder="例: A001" onkeydown="if(event.key==='Enter') AdminSystem.fetchMasterInfo()">
-                  <button class="admin-btn admin-btn-sm" id="admin-prod-fetch-btn" onclick="AdminSystem.fetchMasterInfo()" style="padding:0 10px; background:#0288d1;">🔍 帶入</button>
+                  <button class="admin-btn admin-btn-sm" id="admin-prod-fetch-btn" onclick="AdminSystem.fetchMasterInfo()" style="padding:0 10px; background:#0288d1;"><i class="fa-solid fa-magnifying-glass"></i> 帶入</button>
                 </div>
               </div>
               <div class="admin-form-group" style="flex:2">
@@ -497,21 +501,21 @@
               <div class="admin-form-group"><label>製作費 (自動)</label><input type="text" id="admin-prod-fee" class="admin-input" disabled placeholder="-"></div>
             </div>
             <div class="admin-form-group">
-               <label class="text-danger">售價(主檔試算,唯讀)<span class="info-tip" tabindex="0" data-tip="此金額 = 主檔的 單價+郵票+製作費 加總試算,不可直接編輯。若金額有誤,請回「匯入商品主檔」重新上傳正確的主檔資料。">ⓘ</span></label>
+               <label class="text-danger">售價(主檔試算,唯讀)<span class="info-tip" tabindex="0" data-tip="此金額 = 主檔的 單價+郵票+製作費 加總試算,不可直接編輯。若金額有誤,請回「匯入商品主檔」重新上傳正確的主檔資料。"><i class="fa-solid fa-circle-info"></i></span></label>
                <input type="text" id="admin-prod-total" class="admin-input amount-danger" disabled placeholder="-">
             </div>
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
-              <label>🏷️ 前端顯示名稱 <span class="text-danger">*</span><span class="info-tip" tabindex="0" data-tip="這是實際會顯示在收銀刷讀、購物車、顧客顯示螢幕、銷售紀錄與報表中的名稱,可以自訂成比主檔品名更簡短好辨識的名字。">ⓘ</span></label>
+              <label><i class="fa-solid fa-tag"></i> 前端顯示名稱 <span class="text-danger">*</span><span class="info-tip" tabindex="0" data-tip="這是實際會顯示在收銀刷讀、購物車、顧客顯示螢幕、銷售紀錄與報表中的名稱,可以自訂成比主檔品名更簡短好辨識的名字。"><i class="fa-solid fa-circle-info"></i></span></label>
               <input type="text" id="admin-prod-display-name" class="admin-input" placeholder="例: 波波鴿好運郵票">
             </div>
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
-              <label>📦 初始庫存設定(依 locations 表動態產生)</label>
+              <label><i class="fa-solid fa-box"></i> 初始庫存設定(依 locations 表動態產生)</label>
               <div id="admin-prod-stocks-container" style="background:#f5f5f5; padding:10px; border-radius:6px; margin-top:5px;"></div>
             </div>
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
-              <label>🔧 BOM 組合設定 (選填)<span class="info-tip" tabindex="0" data-tip="格式為「票號:數量,票號:數量」。例如組合包內含 1 張 08Y53652 與 2 張 08Y53653,就填「08Y53652:1,08Y53653:2」;要加第三種票券也可以,例如再加 1 張 08Y53654 就變成「08Y53652:1,08Y53653:2,08Y53654:1」。結帳時系統會依此比例同時扣除各票號的庫存。">ⓘ</span></label>
+              <label><i class="fa-solid fa-wrench"></i> BOM 組合設定 (選填)<span class="info-tip" tabindex="0" data-tip="格式為「票號:數量,票號:數量」。例如組合包內含 1 張 08Y53652 與 2 張 08Y53653,就填「08Y53652:1,08Y53653:2」;要加第三種票券也可以,例如再加 1 張 08Y53654 就變成「08Y53652:1,08Y53653:2,08Y53654:1」。結帳時系統會依此比例同時扣除各票號的庫存。"><i class="fa-solid fa-circle-info"></i></span></label>
               <input type="text" id="admin-prod-bom" class="admin-input" placeholder="例: 08Y53652:1,08Y53653:2">
               <div class="section-sub-label" style="margin-top: var(--sp-1);">若為組合包才需填寫,用半形逗號隔開。</div>
             </div>
@@ -531,7 +535,7 @@
 
 <div id="qr-modal" class="modal-overlay" onclick="closeQrModal(event)">
   <div class="modal-content" style="height: auto; width: 320px; max-width: 90%; padding-bottom: var(--sp-5);">
-     <div class="modal-header"><span>📱 顧客顯示器配對</span><span class="close-btn" onclick="document.getElementById('qr-modal').style.display='none'">✕</span></div>
+     <div class="modal-header"><span><i class="fa-solid fa-qrcode"></i> 顧客顯示器配對</span><span class="close-btn" onclick="document.getElementById('qr-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></span></div>
      <div class="modal-body" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding: var(--sp-5);">
        <div id="qrcode-container" style="margin-bottom: var(--sp-4); border: 5px solid white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); min-height: 250px; display: flex; align-items: center; justify-content: center;"></div>
        <div class="text-sub text-center" style="line-height:1.6;">請使用手機/平板掃描此碼<br>開啟顧客顯示畫面</div>
@@ -541,7 +545,7 @@
 
 <div id="activity-modal" class="modal-overlay" onclick="closeActivityModal(event)">
   <div class="modal-content">
-    <div class="modal-header"><span>📅 當前攤位活動詳情</span><span class="close-btn" onclick="document.getElementById('activity-modal').style.display='none'">✕</span></div>
+    <div class="modal-header"><span><i class="fa-solid fa-calendar-days"></i> 當前攤位活動詳情</span><span class="close-btn" onclick="document.getElementById('activity-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></span></div>
     <div class="modal-body" style="height:100%;" id="activity-modal-body">
       <div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容</p></div>
     </div>
@@ -550,7 +554,7 @@
 
 <div id="stamp-modal" class="modal-overlay" style="z-index: 10001;" onclick="if(event.target.id==='stamp-modal') closeStampModal()">
   <div class="modal-content" style="height:auto; max-width:500px; overflow:visible;">
-    <div class="modal-header"><span>📮 選擇郵票面額</span><span class="close-btn" onclick="closeStampModal()">✕</span></div>
+    <div class="modal-header"><span><i class="fa-solid fa-stamp"></i> 選擇郵票面額</span><span class="close-btn" onclick="closeStampModal()"><i class="fa-solid fa-xmark"></i></span></div>
     <div class="modal-body" style="padding: var(--sp-5);"><div class="stamp-grid"><button class="btn-stamp" onclick="addStampToCart(1)">$1</button><button class="btn-stamp" onclick="addStampToCart(3)">$3</button><button class="btn-stamp" onclick="addStampToCart(5)">$5</button><button class="btn-stamp" onclick="addStampToCart(8)">$8</button><button class="btn-stamp" onclick="addStampToCart(15)">$15</button><button class="btn-stamp" onclick="addStampToCart(28)">$28</button><button class="btn-stamp" onclick="addStampToCart(35)">$35</button></div><hr style="border:0; border-top:1px dashed #ccc; margin: var(--sp-4) 0;"><div style="display:flex; gap: var(--sp-3); align-items:center;"><label class="text-bold" style="color:#555;">其他金額:</label><input type="number" id="stampInput" style="flex:1; font-size: var(--fs-xl); padding: var(--sp-3);" onkeydown="if(event.key==='Enter') addManualStamp()"><button class="btn-save" style="width:auto; padding: var(--sp-3) var(--sp-4);" onclick="addManualStamp()">確認</button></div></div>
   </div>
 </div>
@@ -639,7 +643,7 @@
 
     applyLoginState(myUser);
     const savedCart = localStorage.getItem('pos_cart');
-    if (savedCart) { cart = JSON.parse(savedCart); renderCart(); showToast("🔄 已恢復未完成的購物車"); }
+    if (savedCart) { cart = JSON.parse(savedCart); renderCart(); showToast("<i class='fa-solid fa-arrows-rotate'></i> 已恢復未完成的購物車"); }
   };
 
   function showLocationOverlay() {
@@ -660,7 +664,7 @@
       if (!acc || !pwd) return;
 
       const btn = document.getElementById('login-btn');
-      btn.innerText = "驗證中..."; btn.disabled = true;
+      btn.innerHTML = "驗證中..."; btn.disabled = true;
 
       const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
         email: `${acc}@hsiencashier.local`, password: pwd
@@ -668,8 +672,8 @@
 
       if (authError) {
         console.error(authError);
-        btn.innerText = "登入系統"; btn.disabled = false;
-        document.getElementById('login-msg').innerText = "❌ 帳號或密碼錯誤";
+        btn.innerHTML = "登入系統"; btn.disabled = false;
+        document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號或密碼錯誤";
         return;
       }
 
@@ -679,14 +683,14 @@
       if (profileError || !profile) {
         console.error(profileError);
         try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
-        btn.innerText = "登入系統"; btn.disabled = false;
-        document.getElementById('login-msg').innerText = "❌ 帳號設定異常,請聯絡管理員";
+        btn.innerHTML = "登入系統"; btn.disabled = false;
+        document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常,請聯絡管理員";
         return;
       }
 
       const { data: locations } = await supabaseClient.from('locations').select('id,name').order('sort_order');
 
-      btn.innerText = "登入系統"; btn.disabled = false;
+      btn.innerHTML = "登入系統"; btn.disabled = false;
 
       if (isRem) { localStorage.setItem('pos_acc', acc); localStorage.setItem('pos_pwd', pwd); }
       else { localStorage.removeItem('pos_acc'); localStorage.removeItem('pos_pwd'); }
@@ -713,12 +717,12 @@
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('location-overlay').style.display = 'none';
 
-    document.getElementById('display-branch').innerText = `${res.branchName} @ ${res.location || '預設攤位'}`;
-    document.getElementById('stockLocationLabel').innerText = `(${res.location || '預設攤位'})`;
+    document.getElementById('display-branch').innerHTML = `${res.branchName} @ ${res.location || '預設攤位'}`;
+    document.getElementById('stockLocationLabel').innerHTML = `(${res.location || '預設攤位'})`;
 
     document.getElementById('qrBtn').style.display = 'inline-block';
     const rb = document.getElementById('display-role');
-    rb.innerText = res.role === "ADMIN" ? "管理員" : "支局";
+    rb.innerHTML = res.role === "ADMIN" ? "管理員" : "支局";
     rb.className = "role-badge " + (res.role === "ADMIN" ? "role-admin" : "role-staff");
     document.getElementById('logoutBtn').style.display = 'inline-block';
     document.getElementById('pdfBtn').style.display = 'block';
@@ -758,8 +762,8 @@
 
     showPage('scan');
 
-    document.getElementById('display-branch').innerText = "未登入支局";
-    const rb = document.getElementById('display-role'); rb.innerText = "訪客"; rb.className = "role-badge";
+    document.getElementById('display-branch').innerHTML = "未登入支局";
+    const rb = document.getElementById('display-role'); rb.innerHTML = "訪客"; rb.className = "role-badge";
     document.getElementById('qrBtn').style.display = 'none';
     document.getElementById('logoutBtn').style.display = 'none';
     document.getElementById('pdfBtn').style.display = 'none';
@@ -768,7 +772,7 @@
     document.getElementById('last-record-box').style.display = 'none';
 
     document.getElementById('login-overlay').style.display = 'flex';
-    document.getElementById('login-msg').innerText = "已成功登出";
+    document.getElementById('login-msg').innerHTML = "已成功登出";
   }
 
   function openQrModal() {
@@ -796,7 +800,7 @@
     const box = document.getElementById('last-record-box');
     const info = document.getElementById('last-record-info');
     box.style.display = 'block';
-    info.innerText = "讀取中...";
+    info.innerHTML = "讀取中...";
 
     try {
       // RLS 已經自動擋掉別支局的資料(STAFF 只能看自己 branch),不用再自己過濾 branch。
@@ -806,7 +810,7 @@
         .order('created_at', { ascending: false }).limit(1);
 
       if (latestError) throw latestError;
-      if (!latest || latest.length === 0) { info.innerText = "暫無此地點銷售紀錄"; return; }
+      if (!latest || latest.length === 0) { info.innerHTML = "暫無此地點銷售紀錄"; return; }
 
       const { data: orderRows, error: orderError } = await supabaseClient
         .from('records').select('total').eq('order_id', latest[0].order_id);
@@ -815,10 +819,10 @@
       const count = orderRows.length;
       const total = orderRows.reduce((sum, r) => sum + Number(r.total || 0), 0);
       const time = new Date(latest[0].created_at).toLocaleTimeString('zh-TW', { hour12: false });
-      info.innerHTML = `結帳時間:<b>${time}</b><br>銷售數量:<b>${count} 樣品項</b><br>收款金額:<b class="amount-danger" style="font-size:var(--fs-lg)">$${total.toLocaleString()}</b> ✅`;
+      info.innerHTML = `結帳時間:<b>${time}</b><br>銷售數量:<b>${count} 樣品項</b><br>收款金額:<b class="amount-danger" style="font-size:var(--fs-lg)">$${total.toLocaleString()}</b> <i class="fa-solid fa-circle-check"></i>`;
     } catch (e) {
       console.error(e);
-      info.innerText = "讀取失敗";
+      info.innerHTML = "讀取失敗";
     }
   }
 
@@ -863,7 +867,7 @@
       loadStock();
     } catch (e) {
       console.error(e);
-      showToast("❌ 商品載入失敗");
+      showToast("<i class='fa-solid fa-circle-xmark'></i> 商品載入失敗");
       products = {};
       loadStock();
     }
@@ -877,12 +881,12 @@
     else if (p === 'records') setTimeout(() => document.getElementById('performSearchBtn').focus(), 100);
   }
 
-  document.getElementById('barcodeInput').addEventListener('keypress', e => { if (e.key === 'Enter') { const code = e.target.value.trim().toUpperCase(); if (!code) return; if (code === 'STAMPS00') { openStampModal(); e.target.value = ''; return; } if (products[code]) { const current = cart.filter(item => item.id === code).length; if ((products[code].stock - current) <= 0) showToast("❌ 該地點庫存不足!"); else { cart.unshift({...products[code]}); renderCart(); showToast("✅ 已加入"); } } else showToast("❌ 找不到票號"); e.target.value = ''; } });
+  document.getElementById('barcodeInput').addEventListener('keypress', e => { if (e.key === 'Enter') { const code = e.target.value.trim().toUpperCase(); if (!code) return; if (code === 'STAMPS00') { openStampModal(); e.target.value = ''; return; } if (products[code]) { const current = cart.filter(item => item.id === code).length; if ((products[code].stock - current) <= 0) showToast("<i class='fa-solid fa-circle-xmark'></i> 該地點庫存不足!"); else { cart.unshift({...products[code]}); renderCart(); showToast("<i class='fa-solid fa-circle-check'></i> 已加入"); } } else showToast("<i class='fa-solid fa-circle-xmark'></i> 找不到票號"); e.target.value = ''; } });
 
   function renderCart() {
     const tbody = document.getElementById('cartList'); let tTot = 0, sTot = 0, fTot = 0, pTot = 0;
-    tbody.innerHTML = cart.map((item, i) => { const price = Number(item.price||0), stamp = Number(item.stamp||0), fee = Number(item.fee||0), total = Number(item.total||0); pTot += price; sTot += stamp; fTot += fee; tTot += total; return '<tr><td>' + (cart.length-i) + '</td><td>' + item.id + '</td><td>' + item.name + '</td><td>$' + price.toLocaleString() + '</td><td>$' + stamp.toLocaleString() + '</td><td>$' + fee.toLocaleString() + '</td><td class="amount-primary">$' + total.toLocaleString() + '</td><td><span class="text-danger" style="cursor:pointer;" onclick="cart.splice(' + i + ',1);renderCart()">✕</span></td></tr>'; }).join('');
-    document.getElementById('priceTotal').innerText = "$" + (pTot + fTot).toLocaleString(); document.getElementById('stampTotal').innerText = "$" + sTot.toLocaleString(); document.getElementById('feeTotal').innerText = "$" + fTot.toLocaleString(); document.getElementById('total').innerText = "$" + tTot.toLocaleString(); document.getElementById('count').innerText = cart.length;
+    tbody.innerHTML = cart.map((item, i) => { const price = Number(item.price||0), stamp = Number(item.stamp||0), fee = Number(item.fee||0), total = Number(item.total||0); pTot += price; sTot += stamp; fTot += fee; tTot += total; return '<tr><td>' + (cart.length-i) + '</td><td>' + item.id + '</td><td>' + item.name + '</td><td>$' + price.toLocaleString() + '</td><td>$' + stamp.toLocaleString() + '</td><td>$' + fee.toLocaleString() + '</td><td class="amount-primary">$' + total.toLocaleString() + '</td><td><span class="text-danger" style="cursor:pointer;" onclick="cart.splice(' + i + ',1);renderCart()"><i class="fa-solid fa-xmark"></i></span></td></tr>'; }).join('');
+    document.getElementById('priceTotal').innerHTML = "$" + (pTot + fTot).toLocaleString(); document.getElementById('stampTotal').innerHTML = "$" + sTot.toLocaleString(); document.getElementById('feeTotal').innerHTML = "$" + fTot.toLocaleString(); document.getElementById('total').innerHTML = "$" + tTot.toLocaleString(); document.getElementById('count').innerHTML = cart.length;
     if (cart.length > 0) localStorage.setItem('pos_cart', JSON.stringify(cart)); else localStorage.removeItem('pos_cart');
 
     if (posChannel) posChannel.send({ type: 'broadcast', event: 'update', payload: { cart } });
@@ -890,14 +894,14 @@
 
   async function submitOrder() {
     if (cart.length === 0 || myUser.role === "GUEST" || !myUser.locationId) return;
-    const btn = document.getElementById('saveBtn'); btn.innerText = "⏳ 存檔中..."; btn.style.backgroundColor = "#ef6c00"; btn.disabled = true;
+    const btn = document.getElementById('saveBtn'); btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 存檔中..."; btn.style.backgroundColor = "#ef6c00"; btn.disabled = true;
 
     const invoiceVal = document.getElementById('invoiceInput').value || null;
     const { data, error } = await supabaseClient.rpc('save_order', {
       p_items: cart, p_invoice: invoiceVal, p_location_id: myUser.locationId
     });
 
-    btn.innerText = "確認存檔 or 空白鍵Space"; btn.style.backgroundColor = ""; btn.disabled = false;
+    btn.innerHTML = "確認存檔 or 空白鍵Space"; btn.style.backgroundColor = ""; btn.disabled = false;
 
     if (error) {
       // 連線/認證層級的失敗(不是庫存不足這種業務錯誤,那個會走下面 data.status === 'ERROR' 分支)
@@ -912,7 +916,7 @@
       return;
     }
 
-    showToast("✅ 存檔成功");
+    showToast("<i class='fa-solid fa-circle-check'></i> 存檔成功");
     if (posChannel) posChannel.send({ type: 'broadcast', event: 'finish', payload: {} });
     cart = []; localStorage.removeItem('pos_cart'); renderCart();
     refreshProducts(); updateLastRecordPeek();
@@ -922,7 +926,7 @@
 
   async function performSearch() {
     const area = document.getElementById('recordTableArea');
-    area.innerHTML = '<div style="text-align:center; padding:30px;">⌛ 搜尋中...</div>';
+    area.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fa-solid fa-spinner fa-spin"></i> 搜尋中...</div>';
 
     const kwRaw = document.getElementById('searchKeyword').value.trim();
     const kw = kwRaw.replace(/,/g, ''); // 逗號會破壞 PostgREST 的 or filter 語法,先拿掉
@@ -939,7 +943,7 @@
 
     if (error) {
       console.error(error);
-      area.innerHTML = '<div style="text-align:center; padding:30px;">❌ 搜尋失敗</div>';
+      area.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fa-solid fa-circle-xmark"></i> 搜尋失敗</div>';
       document.getElementById('searchSummary').style.display = "none";
       lastRecords = []; lastRecordsRaw = [];
       return;
@@ -971,11 +975,11 @@
       total += Number(r.total);
       uniqueOrders.add(r.order_id);
       const timeStr = new Date(r.created_at).toLocaleString('zh-TW', { hour12: false });
-      const delBtn = canManage ? `<td align="center"><button class="btn-delete" onclick="handleDeleteRecord('${r.order_id}')">🗑️ 刪除</button></td>` : '';
+      const delBtn = canManage ? `<td align="center"><button class="btn-delete" onclick="handleDeleteRecord('${r.order_id}')"><i class="fa-solid fa-trash"></i> 刪除</button></td>` : '';
       html += `<tr><td>${i+1}</td><td>${timeStr}</td><td>${r.ticket_id}</td><td>${r.product_name}</td><td align="right">$${Number(r.price).toLocaleString()}</td><td align="right">$${Number(r.stamp).toLocaleString()}</td><td align="right" class="amount-danger">$${Number(r.total).toLocaleString()}</td>${delBtn}</tr>`;
     });
     area.innerHTML = html + '</tbody></table>';
-    document.getElementById('searchResultTotal').innerText = uniqueOrders.size + " 筆訂單 / $" + total.toLocaleString();
+    document.getElementById('searchResultTotal').innerHTML = uniqueOrders.size + " 筆訂單 / $" + total.toLocaleString();
     document.getElementById('searchSummary').style.display = "block";
   }
 
@@ -1001,7 +1005,7 @@
       return;
     }
 
-    showToast("🗑️ 已退庫");
+    showToast("<i class='fa-solid fa-trash'></i> 已退庫");
     performSearch();
     refreshProducts();
   }
@@ -1009,7 +1013,7 @@
   function downloadSalesPDF() {
     // 這段邏輯照搬:原本就不是真的用 jsPDF,是組一段 HTML 開新視窗呼叫瀏覽器列印。
     if (!lastRecords || lastRecords.length === 0) return;
-    const btn = document.getElementById('pdfBtn'); btn.innerText = "⌛ 生成中..."; btn.disabled = true;
+    const btn = document.getElementById('pdfBtn'); btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 生成中..."; btn.disabled = true;
     let sumP = 0, sumS = 0, sumF = 0, sumT = 0;
     let salesMap = {};
     lastRecords.forEach(r => { sumP += Number(r[3]||0); sumS += Number(r[4]||0); sumF += Number(r[5]||0); sumT += Number(r[6]||0); const pId = r[1], pName = r[2], key = pId === 'STAMPS00' ? pId + '_' + pName : pId; if (!salesMap[key]) salesMap[key] = { id: pId, name: pName, qty: 0 }; salesMap[key].qty++; });
@@ -1019,21 +1023,21 @@
     lastRecords.forEach(r => { const pId = r[1]; let prod = products[pId]; if (prod) { if (prod.isBundle && prod.bom) { let comps = frontendParseBOM(prod.bom); comps.forEach(c => { conMap[c.id] = (conMap[c.id] || 0) + c.qty; }); } else { conMap[pId] = (conMap[pId] || 0) + 1; } } });
     const locName = document.getElementById('searchLocation').value || "全部攤位";
     const fileName = (myUser.branchName || "Report") + "_" + locName + "_" + new Date().getTime();
-    let printHtml = '<html><head><title>' + fileName + '</title><style>body{font-family:"Microsoft JhengHei",sans-serif;padding:15px;color:#333}h2{text-align:center;margin-bottom:5px}p.info{font-size:11px;text-align:center;color:#666;margin-top:0;margin-bottom:15px}.section-title{font-weight:bold;font-size:14px;margin-bottom:8px;border-left:4px solid #333;padding-left:10px;background:#f5f5f5;padding-top:4px;padding-bottom:4px}table{width:100%;border-collapse:collapse;margin-bottom:15px}th,td{border:1px solid #000;padding:5px;font-size:10px}th{background-color:#f2f2f2}.money{text-align:right}.center{text-align:center}.summary-container{border:2px solid #000;padding:15px;margin-top:10px}.sum-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.total-row{border-top:1px dashed #ccc;margin-top:10px;padding-top:10px;display:flex;justify-content:flex-end;align-items:center}.total-value{color:#d32f2f;font-weight:bold;font-size:20px}.page-break{page-break-after:always}</style></head><body><h2>商品銷售報表 - ' + (myUser.branchName || "總表") + '</h2><p class="info">攤位: ' + locName + ' | 日期: ' + (document.getElementById('searchDate').value || "所有") + ' | 經辦: ' + myUser.account + '</p><div class="section-title">📦 銷售品項統計</div><table><thead><tr><th>#</th><th>票號</th><th>品名</th><th>數量</th></tr></thead><tbody>';
+    let printHtml = '<html><head><title>' + fileName + '</title><style>body{font-family:"Microsoft JhengHei",sans-serif;padding:15px;color:#333}h2{text-align:center;margin-bottom:5px}p.info{font-size:11px;text-align:center;color:#666;margin-top:0;margin-bottom:15px}.section-title{font-weight:bold;font-size:14px;margin-bottom:8px;border-left:4px solid #333;padding-left:10px;background:#f5f5f5;padding-top:4px;padding-bottom:4px}table{width:100%;border-collapse:collapse;margin-bottom:15px}th,td{border:1px solid #000;padding:5px;font-size:10px}th{background-color:#f2f2f2}.money{text-align:right}.center{text-align:center}.summary-container{border:2px solid #000;padding:15px;margin-top:10px}.sum-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.total-row{border-top:1px dashed #ccc;margin-top:10px;padding-top:10px;display:flex;justify-content:flex-end;align-items:center}.total-value{color:#d32f2f;font-weight:bold;font-size:20px}.page-break{page-break-after:always}</style></head><body><h2>商品銷售報表 - ' + (myUser.branchName || "總表") + '</h2><p class="info">攤位: ' + locName + ' | 日期: ' + (document.getElementById('searchDate').value || "所有") + ' | 經辦: ' + myUser.account + '</p><div class="section-title"><i class="fa-solid fa-box"></i> 銷售品項統計</div><table><thead><tr><th>#</th><th>票號</th><th>品名</th><th>數量</th></tr></thead><tbody>';
     sortedList.forEach((p, i) => { printHtml += '<tr><td class="center">' + (i+1) + '</td><td class="center">' + p.id + '</td><td>' + p.name + '</td><td class="center">' + p.qty + '</td></tr>'; });
-    printHtml += '</tbody></table><div class="section-title">🏭 實際庫存扣除統計</div><table><thead><tr><th>#</th><th>票號</th><th>品名</th><th>扣除數</th></tr></thead><tbody>';
+    printHtml += '</tbody></table><div class="section-title"><i class="fa-solid fa-industry"></i> 實際庫存扣除統計</div><table><thead><tr><th>#</th><th>票號</th><th>品名</th><th>扣除數</th></tr></thead><tbody>';
     let t2Seq = 1;
     Object.values(products).sort((a,b)=>a.rowOrder-b.rowOrder).forEach(p => { const c = conMap[p.id] || 0; if(c > 0) printHtml += '<tr><td class="center">' + (t2Seq++) + '</td><td class="center">' + p.id + '</td><td>' + p.name + '</td><td class="center" style="color:blue">' + c + '</td></tr>'; });
-    printHtml += '</tbody></table><div class="summary-container"><div class="sum-grid"><div>總筆數:' + lastRecords.length + '</div><div>單價總計:$' + sumP.toLocaleString() + '</div><div>郵票總計:$' + sumS.toLocaleString() + '</div><div>製作費:$' + sumF.toLocaleString() + '</div></div><div class="total-row">銷售總金額:<span class="total-value">$' + sumT.toLocaleString() + '</span></div></div><div class="page-break"></div><div class="section-title">📜 詳細銷售明細</div><table><thead><tr><th>#</th><th>時間</th><th>票號</th><th>品名</th><th>地點</th><th class="money">售價</th></tr></thead><tbody>';
+    printHtml += '</tbody></table><div class="summary-container"><div class="sum-grid"><div>總筆數:' + lastRecords.length + '</div><div>單價總計:$' + sumP.toLocaleString() + '</div><div>郵票總計:$' + sumS.toLocaleString() + '</div><div>製作費:$' + sumF.toLocaleString() + '</div></div><div class="total-row">銷售總金額:<span class="total-value">$' + sumT.toLocaleString() + '</span></div></div><div class="page-break"></div><div class="section-title"><i class="fa-solid fa-receipt"></i> 詳細銷售明細</div><table><thead><tr><th>#</th><th>時間</th><th>票號</th><th>品名</th><th>地點</th><th class="money">售價</th></tr></thead><tbody>';
     lastRecords.forEach((r, i) => { printHtml += '<tr><td class="center">' + (i+1) + '</td><td class="center">' + r[0] + '</td><td class="center">' + r[1] + '</td><td>' + r[2] + '</td><td class="center">' + (r[10]||'') + '</td><td class="money">$' + Number(r[6]).toLocaleString() + '</td></tr>'; });
     printHtml += '</tbody></table></body></html>';
     const win = window.open('', '_blank'); win.document.write(printHtml); win.document.close();
-    setTimeout(() => { win.print(); win.close(); btn.innerText = "📥 下載報表"; btn.disabled = false; }, 500);
+    setTimeout(() => { win.print(); win.close(); btn.innerHTML = "<i class='fa-solid fa-download'></i> 下載報表"; btn.disabled = false; }, 500);
   }
 
   async function handleExcelEmail() {
     if (lastRecords.length === 0) return;
-    const btn = document.getElementById('excelEmailBtn'); btn.innerText = "📧 寄送中..."; btn.disabled = true;
+    const btn = document.getElementById('excelEmailBtn'); btn.innerHTML = "<i class='fa-solid fa-envelope'></i> 寄送中..."; btn.disabled = true;
 
     const { data, error } = await supabaseClient.functions.invoke('send-sales-excel', {
       body: {
@@ -1044,11 +1048,11 @@
       }
     });
 
-    btn.innerText = "📧 寄送 Excel"; btn.disabled = false;
+    btn.innerHTML = "<i class='fa-solid fa-envelope'></i> 寄送 Excel"; btn.disabled = false;
 
     if (error) { console.error(error); alert("❌ 寄送失敗,請重新整理頁面"); return; }
     if (data.status === 'ERROR') { alert("❌ " + data.message); return; }
-    showToast("✅ 報表已寄出");
+    showToast("<i class='fa-solid fa-circle-check'></i> 報表已寄出");
   }
 
   function loadStock() {
@@ -1062,7 +1066,7 @@
   function doRestock(id, name) {
     const qty = prompt(`[${name}] 補入 ${myUser.location || '預設攤位'} 的數量:`, "10");
     if (qty && !isNaN(qty)) {
-      showToast("⏳ 補貨處理中...");
+      showToast("<i class='fa-solid fa-spinner fa-spin'></i> 補貨處理中...");
       // TODO(Phase 4): 取代 addStock(id, qty, account, location) ——
       // 直接 update product_stock(quantity)並 insert 一筆 stock_logs。
       showToast("尚未接上 Supabase(Phase 4 才會實作補貨)");
@@ -1072,9 +1076,9 @@
   function frontendParseBOM(str) { let res = []; if(!str) return res; let parts = str.split(','); for(let i=0; i<parts.length; i++) { let pair = parts[i].split(':'); if(pair.length === 2) res.push({id: pair[0].trim(), qty: parseInt(pair[1].trim())}); } return res; }
   function openStampModal() { document.getElementById('stamp-modal').style.display = 'flex'; setTimeout(() => { const i = document.getElementById('stampInput'); i.value = ''; i.focus(); }, 100); }
   function closeStampModal() { document.getElementById('stamp-modal').style.display = 'none'; }
-  function addStampToCart(amt) { const a = parseInt(amt); if (!a || a <= 0) return; cart.unshift({ id: 'STAMPS00', name: '郵票 ($' + a + ')', price: 0, stamp: a, fee: 0, total: a, stock: 9999, isBundle: false }); renderCart(); closeStampModal(); showToast("✅ 已加入郵票 $" + a); }
+  function addStampToCart(amt) { const a = parseInt(amt); if (!a || a <= 0) return; cart.unshift({ id: 'STAMPS00', name: '郵票 ($' + a + ')', price: 0, stamp: a, fee: 0, total: a, stock: 9999, isBundle: false }); renderCart(); closeStampModal(); showToast("<i class='fa-solid fa-circle-check'></i> 已加入郵票 $" + a); }
   function addManualStamp() { const v = document.getElementById('stampInput').value; if(v) addStampToCart(v); }
-  function showToast(m) { const t = document.getElementById("toast"); t.innerText = m; t.className = "show"; setTimeout(() => t.className = "", 3000); }
+  function showToast(m) { const t = document.getElementById("toast"); t.innerHTML = m; t.className = "show"; setTimeout(() => t.className = "", 3000); }
   document.addEventListener('keydown', e => { if (e.code === 'Space' && document.getElementById('page-scan').classList.contains('active')) { e.preventDefault(); document.getElementById('saveBtn').click(); } });
 </script>
 
@@ -1108,7 +1112,7 @@ const AdminSystem = {
 
   loadSettings: async function() {
     const btn = document.getElementById('admin-save-settings-btn');
-    btn.innerText = "⏳ 讀取中...";
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 讀取中...";
 
     const { data: settings } = await supabaseClient.from('settings').select('*').eq('id', 1).single();
     if (settings) {
@@ -1119,13 +1123,13 @@ const AdminSystem = {
       document.getElementById('admin-set-email').value = settings.email || "";
     }
 
-    btn.innerText = "💾 儲存設定並同步";
+    btn.innerHTML = "<i class='fa-solid fa-floppy-disk'></i> 儲存設定並同步";
     await AdminSystem.loadLocations();
   },
 
   saveSettings: async function() {
     const btn = document.getElementById('admin-save-settings-btn');
-    btn.innerText = "⏳ 儲存中..."; btn.disabled = true;
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 儲存中..."; btn.disabled = true;
 
     const { error: settingsError } = await supabaseClient.from('settings').update({
       title: document.getElementById('admin-set-title').value,
@@ -1135,7 +1139,7 @@ const AdminSystem = {
       email: document.getElementById('admin-set-email').value,
     }).eq('id', 1);
 
-    btn.innerText = "💾 儲存設定並同步"; btn.disabled = false;
+    btn.innerHTML = "<i class='fa-solid fa-floppy-disk'></i> 儲存設定並同步"; btn.disabled = false;
 
     if (settingsError) {
       alert("❌ 儲存失敗:" + settingsError.message);
@@ -1151,7 +1155,7 @@ const AdminSystem = {
   // 之前用文字框改名字會誤判成後者,導致舊的(還有資料在用)刪不掉、又多一筆重複的。
   loadLocations: async function() {
     const { data: locs, error } = await supabaseClient.from('locations').select('*').order('sort_order');
-    if (error) { console.error(error); document.getElementById('admin-locations-list').innerHTML = "❌ 讀取失敗"; return; }
+    if (error) { console.error(error); document.getElementById('admin-locations-list').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 讀取失敗"; return; }
     AdminSystem.locationsData = locs || [];
     AdminSystem.renderLocationsList();
   },
@@ -1161,8 +1165,8 @@ const AdminSystem = {
     let html = '<table class="admin-table"><thead><tr><th>攤位名稱</th><th>操作</th></tr></thead><tbody>';
     AdminSystem.locationsData.forEach(loc => {
       html += `<tr><td>${loc.name}</td><td>
-        <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.renameLocation(${loc.id})">✏️ 改名</button>
-        <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteLocation(${loc.id})">🗑️ 刪除</button>
+        <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.renameLocation(${loc.id})"><i class="fa-solid fa-pen"></i> 改名</button>
+        <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteLocation(${loc.id})"><i class="fa-solid fa-trash"></i> 刪除</button>
       </td></tr>`;
     });
     document.getElementById('admin-locations-list').innerHTML = html + '</tbody></table>';
@@ -1198,9 +1202,9 @@ const AdminSystem = {
 
   // ==================== 模組 2:帳號管理(profiles 表 + Supabase Auth) ====================
   loadUsers: async function() {
-    document.getElementById('admin-users-table-container').innerHTML = "⏳ 資料讀取中...";
+    document.getElementById('admin-users-table-container').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 資料讀取中...";
     const { data, error } = await supabaseClient.from('profiles').select('account,branch,role').order('account');
-    if (error) { console.error(error); document.getElementById('admin-users-table-container').innerHTML = "❌ 讀取失敗"; return; }
+    if (error) { console.error(error); document.getElementById('admin-users-table-container').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 讀取失敗"; return; }
     this.usersData = data || [];
     this.renderUsersTable();
   },
@@ -1211,9 +1215,9 @@ const AdminSystem = {
     let html = '<table class="admin-table"><thead><tr><th>員工編號</th><th>預設支局</th><th>權限</th><th>操作</th></tr></thead><tbody>';
     this.usersData.forEach((u, i) => {
       html += `<tr><td>${u.account}</td><td>${u.branch}</td><td class="${u.role==='ADMIN'?'text-admin':''}">${u.role}</td>
-        <td><button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.openUserModal(${i})">✏️ 編輯</button>
-        <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.resetPassword('${u.account}')">🔑 重設密碼</button>
-        <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteUser('${u.account}')">🗑️ 刪除</button></td></tr>`;
+        <td><button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.openUserModal(${i})"><i class="fa-solid fa-pen"></i> 編輯</button>
+        <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.resetPassword('${u.account}')"><i class="fa-solid fa-key"></i> 重設密碼</button>
+        <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteUser('${u.account}')"><i class="fa-solid fa-trash"></i> 刪除</button></td></tr>`;
     });
     document.getElementById('admin-users-table-container').innerHTML = html + '</tbody></table>';
   },
@@ -1223,7 +1227,7 @@ const AdminSystem = {
     const pwdGroup = document.getElementById('admin-user-pwd-group');
     if (i !== undefined) {
       let u = this.usersData[i];
-      document.getElementById('admin-user-modal-title').innerText = "✏️ 編輯帳號";
+      document.getElementById('admin-user-modal-title').innerHTML = "<i class='fa-solid fa-pen'></i> 編輯帳號";
       document.getElementById('admin-user-action').value = "EDIT";
       document.getElementById('admin-user-old-acc').value = u.account;
       document.getElementById('admin-user-acc').value = u.account;
@@ -1231,7 +1235,7 @@ const AdminSystem = {
       document.getElementById('admin-user-role').value = u.role;
       pwdGroup.style.display = 'none'; // 編輯既有帳號不能改密碼,只能用「重設密碼」
     } else {
-      document.getElementById('admin-user-modal-title').innerText = "➕ 新增帳號";
+      document.getElementById('admin-user-modal-title').innerHTML = "<i class='fa-solid fa-plus'></i> 新增帳號";
       document.getElementById('admin-user-action').value = "ADD";
       document.getElementById('admin-user-old-acc').value = "";
       document.getElementById('admin-user-acc').value = "";
@@ -1251,20 +1255,20 @@ const AdminSystem = {
     if (action === 'ADD') data.password = document.getElementById('admin-user-pwd').value.trim();
     if (!data.account || !data.branch || (action === 'ADD' && !data.password)) { alert("⚠️ 請填寫完整資料!"); return; }
     const btn = document.getElementById('admin-user-save-btn');
-    btn.innerText = "⏳ 儲存中..."; btn.disabled = true;
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 儲存中..."; btn.disabled = true;
 
     if (action === 'ADD') {
       const { data: res, error } = await supabaseClient.functions.invoke('admin-users', {
         body: { action: 'create', account: data.account, password: data.password, branch: data.branch, role: data.role }
       });
-      btn.innerText = "確認儲存"; btn.disabled = false;
+      btn.innerHTML = "確認儲存"; btn.disabled = false;
       if (error) { console.error(error); alert("❌ 儲存失敗,請重新整理頁面"); return; }
       if (res.status === 'ERROR') { alert("❌ " + res.message); return; }
       AdminSystem.closeUserModal(); AdminSystem.loadUsers();
     } else {
       // 編輯既有帳號只能改 branch/role,不涉及密碼,直接 update profiles(靠 RLS 的 profiles_update_admin policy)。
       const { error } = await supabaseClient.from('profiles').update({ branch: data.branch, role: data.role }).eq('account', oldAcc);
-      btn.innerText = "確認儲存"; btn.disabled = false;
+      btn.innerHTML = "確認儲存"; btn.disabled = false;
       if (error) { console.error(error); alert("❌ " + error.message); return; }
       AdminSystem.closeUserModal(); AdminSystem.loadUsers();
     }
@@ -1283,7 +1287,7 @@ const AdminSystem = {
 
   deleteUser: async function(acc) {
     if (!confirm(`確定要刪除帳號 [${acc}] 嗎?`)) return;
-    document.getElementById('admin-users-table-container').innerHTML = "⏳ 刪除中...";
+    document.getElementById('admin-users-table-container').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 刪除中...";
     const { data: res, error } = await supabaseClient.functions.invoke('admin-users', {
       body: { action: 'delete', account: acc }
     });
@@ -1305,7 +1309,7 @@ const AdminSystem = {
 
     const btn = document.getElementById('master-upload-btn');
     const resultEl = document.getElementById('master-upload-result');
-    btn.innerText = "⏳ 解析中..."; btn.disabled = true;
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 解析中..."; btn.disabled = true;
     resultEl.textContent = "";
 
     const rowsById = {}; // ticket_id -> row,批次內用 ticket_id 去重(同一批次重複只取第一筆)
@@ -1356,7 +1360,7 @@ const AdminSystem = {
       } catch (e) {
         console.error(e);
         alert(`❌ 檔案「${file.name}」解析失敗:` + e.message);
-        btn.innerText = "上傳並匯入"; btn.disabled = false;
+        btn.innerHTML = "上傳並匯入"; btn.disabled = false;
         return;
       }
     }
@@ -1365,7 +1369,7 @@ const AdminSystem = {
 
     // 先查資料庫裡已經有哪些票號,才能算出「這次真的會新增幾筆」,而不是事後用 upsert 回傳資料猜。
     // PostgREST 單次 select 預設最多回 1000 筆,主檔筆數早就超過,要用 .range() 分頁撈完。
-    btn.innerText = "⏳ 檢查現有資料...";
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 檢查現有資料...";
     const existingIds = new Set();
     let rangeStart = 0;
     const pageSize = 1000;
@@ -1376,7 +1380,7 @@ const AdminSystem = {
         .range(rangeStart, rangeStart + pageSize - 1);
       if (existingError) {
         alert("❌ 讀取現有主檔失敗:" + existingError.message);
-        btn.innerText = "上傳並匯入"; btn.disabled = false;
+        btn.innerHTML = "上傳並匯入"; btn.disabled = false;
         return;
       }
       (existingPage || []).forEach(r => existingIds.add(r.ticket_id));
@@ -1386,7 +1390,7 @@ const AdminSystem = {
     const newRows = parsedRows.filter(r => !existingIds.has(r.ticket_id));
     const dbDuplicates = parsedRows.length - newRows.length;
 
-    btn.innerText = `⏳ 寫入中 (0/${newRows.length})...`;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (0/${newRows.length})...`;
     const batchSize = 500;
     for (let i = 0; i < newRows.length; i += batchSize) {
       const batch = newRows.slice(i, i + batchSize);
@@ -1395,13 +1399,13 @@ const AdminSystem = {
         .upsert(batch, { onConflict: 'ticket_id', ignoreDuplicates: true });
       if (upsertError) {
         alert("❌ 寫入失敗:" + upsertError.message);
-        btn.innerText = "上傳並匯入"; btn.disabled = false;
+        btn.innerHTML = "上傳並匯入"; btn.disabled = false;
         return;
       }
-      btn.innerText = `⏳ 寫入中 (${Math.min(i + batchSize, newRows.length)}/${newRows.length})...`;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (${Math.min(i + batchSize, newRows.length)}/${newRows.length})...`;
     }
 
-    btn.innerText = "上傳並匯入"; btn.disabled = false;
+    btn.innerHTML = "上傳並匯入"; btn.disabled = false;
     input.value = "";
     resultEl.textContent = `處理了 ${fileCount} 個檔案,共 ${totalRows} 列;匯入 ${newRows.length} 筆新資料;` +
       `略過 ${dbDuplicates + batchDuplicates} 筆重複票號(資料庫已有 ${dbDuplicates} 筆、上傳批次內重複 ${batchDuplicates} 筆);` +
@@ -1409,13 +1413,13 @@ const AdminSystem = {
   },
 
   loadProducts: async function() {
-    document.getElementById('admin-products-table-container').innerHTML = "⏳ 讀取商品資料庫中...";
+    document.getElementById('admin-products-table-container').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 讀取商品資料庫中...";
 
     const { data: locs } = await supabaseClient.from('locations').select('id,name').order('sort_order');
     this.productLocations = locs || [];
 
     const { data: prods, error } = await supabaseClient.from('products').select('*').order('row_order');
-    if (error) { console.error(error); document.getElementById('admin-products-table-container').innerHTML = "❌ 讀取失敗"; return; }
+    if (error) { console.error(error); document.getElementById('admin-products-table-container').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 讀取失敗"; return; }
 
     const { data: stockRows } = await supabaseClient.from('product_stock').select('product_id,location_id,quantity');
     const stocksByProduct = {};
@@ -1439,8 +1443,8 @@ const AdminSystem = {
         <td class="amount-danger">$${p.total}</td>
         <td>${bomBadge}</td>
         <td>
-          <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.openProductModal(${i})" style="margin-right: var(--sp-1);">✏️ 編輯</button>
-          <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteProduct('${p.id}')">🗑️ 刪除</button>
+          <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.openProductModal(${i})" style="margin-right: var(--sp-1);"><i class="fa-solid fa-pen"></i> 編輯</button>
+          <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteProduct('${p.id}')"><i class="fa-solid fa-trash"></i> 刪除</button>
         </td>
       </tr>`;
     });
@@ -1451,10 +1455,10 @@ const AdminSystem = {
     const id = document.getElementById('admin-prod-id').value.trim();
     if (!id) { alert("請先輸入票號!"); return; }
     const btn = document.getElementById('admin-prod-fetch-btn');
-    btn.innerText = "⏳..."; btn.disabled = true;
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>..."; btn.disabled = true;
 
     const { data: m } = await supabaseClient.from('master_products').select('*').eq('ticket_id', id).single();
-    btn.innerText = "🔍 帶入"; btn.disabled = false;
+    btn.innerHTML = "<i class='fa-solid fa-magnifying-glass'></i> 帶入"; btn.disabled = false;
 
     if (m) {
       document.getElementById('admin-prod-name').value = m.name;
@@ -1481,7 +1485,7 @@ const AdminSystem = {
     let stockHtml = '';
     this.productLocations.forEach(loc => {
        stockHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
-          <label style="margin:0; font-weight:normal;">📍 ${loc.name}</label>
+          <label style="margin:0; font-weight:normal;"><i class="fa-solid fa-location-dot"></i> ${loc.name}</label>
           <input type="number" id="admin-prod-stock-${loc.id}" class="admin-input" style="width:80px; padding:6px;" value="0">
        </div>`;
     });
@@ -1493,7 +1497,7 @@ const AdminSystem = {
 
     if (i !== undefined) {
       let p = this.productsData[i];
-      document.getElementById('admin-product-modal-title').innerText = "✏️ 編輯商品";
+      document.getElementById('admin-product-modal-title').innerHTML = "<i class='fa-solid fa-pen'></i> 編輯商品";
       document.getElementById('admin-product-action').value = "EDIT";
       document.getElementById('admin-product-old-id').value = p.id;
 
@@ -1515,7 +1519,7 @@ const AdminSystem = {
         if (el) el.value = p.stocks[loc.id] || 0;
       });
     } else {
-      document.getElementById('admin-product-modal-title').innerText = "➕ 新增商品";
+      document.getElementById('admin-product-modal-title').innerHTML = "<i class='fa-solid fa-plus'></i> 新增商品";
       document.getElementById('admin-product-action').value = "ADD";
       document.getElementById('admin-product-old-id').value = "";
 
@@ -1550,7 +1554,7 @@ const AdminSystem = {
     });
 
     const btn = document.getElementById('admin-product-save-btn');
-    btn.innerText = "⏳ 儲存中..."; btn.disabled = true;
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 儲存中..."; btn.disabled = true;
 
     const productRow = {
       name: displayName,
@@ -1571,7 +1575,7 @@ const AdminSystem = {
     }
 
     if (saveError) {
-      btn.innerText = "確認儲存"; btn.disabled = false;
+      btn.innerHTML = "確認儲存"; btn.disabled = false;
       alert("❌ 儲存失敗:" + saveError.message);
       return;
     }
@@ -1580,21 +1584,21 @@ const AdminSystem = {
     if (stockRows.length > 0) {
       const { error: stockError } = await supabaseClient.from('product_stock').upsert(stockRows, { onConflict: 'product_id,location_id' });
       if (stockError) {
-        btn.innerText = "確認儲存"; btn.disabled = false;
+        btn.innerHTML = "確認儲存"; btn.disabled = false;
         alert("⚠️ 商品資料已儲存,但庫存寫入失敗:" + stockError.message);
         AdminSystem.closeProductModal(); AdminSystem.loadProducts();
         return;
       }
     }
 
-    btn.innerText = "確認儲存"; btn.disabled = false;
+    btn.innerHTML = "確認儲存"; btn.disabled = false;
     AdminSystem.closeProductModal(); AdminSystem.loadProducts();
     refreshProducts(); // 同步刷新收銀掃描用的商品快取,不然剛新增/改過的商品要重新整理頁面才刷得到
   },
 
   deleteProduct: async function(id) {
     if (!confirm(`⚠️ 確定要刪除商品 [${id}] 嗎?\n此動作將一併刪除該商品的所有庫存。`)) return;
-    document.getElementById('admin-products-table-container').innerHTML = "⏳ 刪除中...";
+    document.getElementById('admin-products-table-container').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 刪除中...";
     const { error } = await supabaseClient.from('products').delete().eq('id', id);
     if (error) { alert("❌ 刪除失敗:" + error.message); }
     AdminSystem.loadProducts();
@@ -1607,11 +1611,11 @@ const AdminSystem = {
     const eDate = document.getElementById('admin-report-end').value;
     const locId = parseInt(document.getElementById('admin-report-loc').value) || null;
 
-    document.getElementById('admin-rep-sumT').innerText = "⏳";
-    document.getElementById('admin-rep-orders').innerText = "⏳";
-    document.getElementById('admin-rep-sumP').innerText = "⏳";
-    document.getElementById('admin-rep-sumS').innerText = "⏳";
-    document.getElementById('admin-rep-sumF').innerText = "⏳";
+    document.getElementById('admin-rep-sumT').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>";
+    document.getElementById('admin-rep-orders').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>";
+    document.getElementById('admin-rep-sumP').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>";
+    document.getElementById('admin-rep-sumS').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>";
+    document.getElementById('admin-rep-sumF').innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>";
     document.getElementById('admin-rep-salesTable').innerHTML = '<tr><td colspan="4" align="center">讀取與計算中...</td></tr>';
     document.getElementById('admin-rep-deductTable').innerHTML = '<tr><td colspan="4" align="center">讀取與計算中...</td></tr>';
 
@@ -1633,8 +1637,8 @@ const AdminSystem = {
 
     if (error) {
       console.error(error);
-      document.getElementById('admin-rep-salesTable').innerHTML = '<tr><td colspan="4" align="center">❌ 讀取失敗</td></tr>';
-      document.getElementById('admin-rep-deductTable').innerHTML = '<tr><td colspan="4" align="center">❌ 讀取失敗</td></tr>';
+      document.getElementById('admin-rep-salesTable').innerHTML = '<tr><td colspan="4" align="center"><i class="fa-solid fa-circle-xmark"></i> 讀取失敗</td></tr>';
+      document.getElementById('admin-rep-deductTable').innerHTML = '<tr><td colspan="4" align="center"><i class="fa-solid fa-circle-xmark"></i> 讀取失敗</td></tr>';
       return;
     }
 
@@ -1666,11 +1670,11 @@ const AdminSystem = {
     const salesList = Object.values(salesMap).sort((a, b) => rowOrderOf(a.id) - rowOrderOf(b.id));
     const deductList = Object.values(deductMap).sort((a, b) => rowOrderOf(a.id) - rowOrderOf(b.id));
 
-    document.getElementById('admin-rep-sumT').innerText = "$" + sumT.toLocaleString();
-    document.getElementById('admin-rep-orders').innerText = orderSet.size;
-    document.getElementById('admin-rep-sumP').innerText = "$" + sumP.toLocaleString();
-    document.getElementById('admin-rep-sumS').innerText = "$" + sumS.toLocaleString();
-    document.getElementById('admin-rep-sumF').innerText = "$" + sumF.toLocaleString();
+    document.getElementById('admin-rep-sumT').innerHTML = "$" + sumT.toLocaleString();
+    document.getElementById('admin-rep-orders').innerHTML = orderSet.size;
+    document.getElementById('admin-rep-sumP').innerHTML = "$" + sumP.toLocaleString();
+    document.getElementById('admin-rep-sumS').innerHTML = "$" + sumS.toLocaleString();
+    document.getElementById('admin-rep-sumF').innerHTML = "$" + sumF.toLocaleString();
 
     document.getElementById('admin-rep-salesTable').innerHTML = salesList.length === 0
       ? '<tr><td colspan="4" align="center">查無銷售資料</td></tr>'
