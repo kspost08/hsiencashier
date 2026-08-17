@@ -315,8 +315,15 @@
           <div class="admin-form-group"><label>攤位重要公告</label><textarea id="admin-set-notice" class="admin-textarea"></textarea></div>
           <div class="admin-form-group"><label>活動網址 / iframe</label><input type="text" id="admin-set-url" class="admin-input"></div>
           <div class="admin-form-group"><label>報表接收 Email</label><input type="text" id="admin-set-email" class="admin-input"></div>
-          <div class="admin-form-group"><label>攤位清單(用換行區隔,對應 locations 表)</label><textarea id="admin-set-locations" class="admin-textarea" style="min-height: 120px;"></textarea></div>
           <button class="admin-btn" id="admin-save-settings-btn" onclick="AdminSystem.saveSettings()">💾 儲存設定並同步</button>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3>📍 攤位清單</h3>
+            <button class="admin-btn admin-btn-sm" onclick="AdminSystem.addLocation()">+ 新增攤位</button>
+          </div>
+          <div id="admin-locations-list">載入中...</div>
         </div>
       </div>
 
@@ -1064,6 +1071,8 @@ const AdminSystem = {
   },
 
   // ==================== 模組 1:設定管理(settings 表) ====================
+  locationsData: [],
+
   loadSettings: async function() {
     const btn = document.getElementById('admin-save-settings-btn');
     btn.innerText = "⏳ 讀取中...";
@@ -1077,10 +1086,8 @@ const AdminSystem = {
       document.getElementById('admin-set-email').value = settings.email || "";
     }
 
-    const { data: locs } = await supabaseClient.from('locations').select('name').order('sort_order');
-    document.getElementById('admin-set-locations').value = (locs || []).map(l => l.name).join('\n');
-
     btn.innerText = "💾 儲存設定並同步";
+    await AdminSystem.loadLocations();
   },
 
   saveSettings: async function() {
@@ -1095,45 +1102,65 @@ const AdminSystem = {
       email: document.getElementById('admin-set-email').value,
     }).eq('id', 1);
 
+    btn.innerText = "💾 儲存設定並同步"; btn.disabled = false;
+
     if (settingsError) {
-      btn.innerText = "💾 儲存設定並同步"; btn.disabled = false;
       alert("❌ 儲存失敗:" + settingsError.message);
       return;
     }
 
-    // 攤位清單用 diff 同步:textarea 裡新出現的名稱新增,資料庫裡有但清單刪掉的名稱嘗試刪除,
-    // 刪不掉(還有 product_stock/records/schedule_stock 資料在用)就跳過並記下來,不讓整個存檔失敗。
-    const newNames = document.getElementById('admin-set-locations').value
-      .split('\n').map(l => l.trim()).filter(l => l !== "");
-    const { data: currentLocs } = await supabaseClient.from('locations').select('id,name,sort_order');
-    const currentByName = {};
-    (currentLocs || []).forEach(l => { currentByName[l.name] = l; });
-
-    const blocked = [];
-    for (const loc of (currentLocs || [])) {
-      if (!newNames.includes(loc.name)) {
-        const { error: delError } = await supabaseClient.from('locations').delete().eq('id', loc.id);
-        if (delError) blocked.push(loc.name);
-      }
-    }
-    for (let i = 0; i < newNames.length; i++) {
-      const name = newNames[i];
-      if (currentByName[name]) {
-        if (currentByName[name].sort_order !== i) {
-          await supabaseClient.from('locations').update({ sort_order: i }).eq('id', currentByName[name].id);
-        }
-      } else {
-        await supabaseClient.from('locations').insert({ name, sort_order: i });
-      }
-    }
-
-    btn.innerText = "💾 儲存設定並同步"; btn.disabled = false;
     await loadPublicSettings();
-    if (blocked.length > 0) {
-      alert("✅ 設定已更新,但以下攤位還有資料(庫存/銷售紀錄),無法刪除:\n" + blocked.join('、'));
-    } else {
-      alert("✅ 設定已成功更新!");
-    }
+    alert("✅ 設定已成功更新!");
+  },
+
+  // 攤位清單改成即時生效的清單(改名/新增/刪除各自獨立呼叫),
+  // 不再用文字框整批 diff——文字框沒辦法分辨「改名」跟「刪一個、加一個新的」,
+  // 之前用文字框改名字會誤判成後者,導致舊的(還有資料在用)刪不掉、又多一筆重複的。
+  loadLocations: async function() {
+    const { data: locs, error } = await supabaseClient.from('locations').select('*').order('sort_order');
+    if (error) { console.error(error); document.getElementById('admin-locations-list').innerHTML = "❌ 讀取失敗"; return; }
+    AdminSystem.locationsData = locs || [];
+    AdminSystem.renderLocationsList();
+  },
+
+  renderLocationsList: function() {
+    if (AdminSystem.locationsData.length === 0) { document.getElementById('admin-locations-list').innerHTML = "尚無攤位資料。"; return; }
+    let html = '<table class="admin-table"><thead><tr><th>攤位名稱</th><th>操作</th></tr></thead><tbody>';
+    AdminSystem.locationsData.forEach(loc => {
+      html += `<tr><td>${loc.name}</td><td>
+        <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.renameLocation(${loc.id})">✏️ 改名</button>
+        <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteLocation(${loc.id})">🗑️ 刪除</button>
+      </td></tr>`;
+    });
+    document.getElementById('admin-locations-list').innerHTML = html + '</tbody></table>';
+  },
+
+  addLocation: async function() {
+    const name = prompt("新攤位名稱:");
+    if (!name || !name.trim()) return;
+    const { error } = await supabaseClient.from('locations').insert({ name: name.trim(), sort_order: AdminSystem.locationsData.length });
+    if (error) { alert("❌ 新增失敗:" + error.message); return; }
+    await AdminSystem.loadLocations();
+  },
+
+  renameLocation: async function(id) {
+    const loc = AdminSystem.locationsData.find(l => l.id === id);
+    if (!loc) return;
+    const newName = prompt(`把「${loc.name}」改名為:`, loc.name);
+    if (!newName || !newName.trim() || newName.trim() === loc.name) return;
+    // 改的是同一個 id 的 name 欄位,location_id 不變,庫存/銷售紀錄自動跟著新名字走,不會斷資料。
+    const { error } = await supabaseClient.from('locations').update({ name: newName.trim() }).eq('id', id);
+    if (error) { alert("❌ 改名失敗:" + error.message); return; }
+    await AdminSystem.loadLocations();
+  },
+
+  deleteLocation: async function(id) {
+    const loc = AdminSystem.locationsData.find(l => l.id === id);
+    if (!loc) return;
+    if (!confirm(`確定要刪除攤位「${loc.name}」嗎?`)) return;
+    const { error } = await supabaseClient.from('locations').delete().eq('id', id);
+    if (error) { alert(`❌ 無法刪除「${loc.name}」:這個攤位還有庫存或銷售紀錄在用。`); return; }
+    await AdminSystem.loadLocations();
   },
 
   // ==================== 模組 2:帳號管理(profiles 表 + Supabase Auth) ====================
