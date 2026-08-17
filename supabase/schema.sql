@@ -62,10 +62,14 @@ create table if not exists stock_logs (
 
 create table if not exists schedule_stock (
   id bigint generated always as identity primary key,
-  scheduled_date date not null,
+  scheduled_date date not null,      -- 配票日期,pg_cron 每天檢查這個欄位
   location_id int references locations(id),
-  order_ref text unique,             -- 配票單號,靠 unique 防止重複轉入(這版先建表,不實作橋接功能)
-  items jsonb not null,
+  order_ref text not null,           -- 配票單號,一個單號底下可以有多列品項(不是 unique)
+  branch text,                       -- 支局(純記錄用,實際扣/補庫存是靠 location_id)
+  ticket_id text not null,           -- 票號,對應 products.id
+  product_name text not null,        -- 票品名稱,新增時可從 master_products 帶入,個別可再編輯
+  qty int not null,                  -- 要補的數量
+  applied_at timestamptz,            -- 是否已套用補貨(手動套用或 pg_cron 自動套用都會寫入)
   created_at timestamptz default now()
 );
 
@@ -93,3 +97,7 @@ create index if not exists idx_records_branch on records(branch);
 create index if not exists idx_records_location on records(location_id);
 create index if not exists idx_records_created_at on records(created_at);
 create index if not exists idx_records_order_id on records(order_id);
+
+-- 索引:schedule_stock 常用查詢欄位
+create index if not exists idx_schedule_stock_order_ref on schedule_stock(order_ref);
+create index if not exists idx_schedule_stock_pending on schedule_stock(scheduled_date) where applied_at is null;

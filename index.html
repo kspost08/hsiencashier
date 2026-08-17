@@ -380,13 +380,61 @@
         </div>
       </div>
 
-      <div id="admin-panel-records" class="admin-panel"><div class="admin-card"><h3><i class="fa-solid fa-receipt"></i> 銷售紀錄檢視</h3><p class="admin-note"><i class="fa-solid fa-hammer"></i> 模組建置中...</p></div></div>
+      <div id="admin-panel-records" class="admin-panel">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3><i class="fa-solid fa-receipt"></i> 全支局銷售總覽<span class="info-tip" tabindex="0" data-tip="這裡可以查看所有支局、所有攤位的銷售紀錄。主畫面「銷售紀錄」頁面只會顯示登入帳號所屬支局的資料。"><i class="fa-solid fa-circle-info"></i></span></h3>
+          </div>
+          <div style="display:flex; gap: var(--sp-2); align-items:center; flex-wrap:wrap; margin-bottom: var(--sp-3);">
+            <input type="text" id="admin-rec-keyword" class="admin-input" placeholder="🔍 品名/票號" style="flex:1.5; min-width:150px; margin:0;">
+            <input type="date" id="admin-rec-date" class="admin-input" style="flex:1; min-width:140px; margin:0;">
+            <select id="admin-rec-branch" class="admin-select" style="flex:1; min-width:120px; margin:0;"><option value="">所有支局</option></select>
+            <select id="admin-rec-location" class="admin-select" style="flex:1; min-width:120px; margin:0;"><option value="">所有攤位</option></select>
+            <select id="admin-rec-limit" class="admin-select" style="flex:0.6; min-width:90px; margin:0;"><option value="20">20筆</option><option value="50" selected>50筆</option><option value="100">100筆</option><option value="10000">全部</option></select>
+            <button class="admin-btn admin-btn-sm" onclick="AdminSystem.loadAllRecords()"><i class="fa-solid fa-magnifying-glass"></i> 搜尋</button>
+          </div>
+          <div id="admin-rec-table-container">尚未查詢。</div>
+          <div id="admin-rec-summary" class="text-right text-bold text-danger" style="display:none; padding: var(--sp-2); font-size: var(--fs-lg);">總計金額: <span id="admin-rec-total">$0</span></div>
+        </div>
+      </div>
 
       <div id="admin-panel-schedule" class="admin-panel">
         <div class="admin-card">
-          <h3><i class="fa-solid fa-calendar-days"></i> 排程補貨</h3>
-          <p class="admin-note">這版只做「每日排程補貨」(讀 schedule_stock、寫 product_stock,pg_cron 執行)。</p>
-          <p class="admin-note">外部「票券股配票總庫」跨庫轉檔橋接功能不在這次遷移範圍內,不實作對應 UI。</p>
+          <div class="admin-card-header">
+            <h3><i class="fa-solid fa-calendar-days"></i> 新增配票項目<span class="info-tip" tabindex="0" data-tip="同一個配票單號可以連續新增多個品項——送出後配票單號/支局/配票日期/活動地點不會清空,方便連續輸入同一張配票單的所有品項。">ⓘ</span></h3>
+          </div>
+          <div class="admin-form-row">
+            <div class="admin-form-group"><label>配票單號 <span class="text-danger">*</span></label><input type="text" id="sched-order-ref" class="admin-input" placeholder="例: PC20260901-01"></div>
+            <div class="admin-form-group"><label>支局</label><input type="text" id="sched-branch" class="admin-input" placeholder="例: 高雄郵局"></div>
+            <div class="admin-form-group"><label>配票日期 <span class="text-danger">*</span></label><input type="date" id="sched-date" class="admin-input"></div>
+          </div>
+          <div class="admin-form-row">
+            <div class="admin-form-group"><label>活動地點 <span class="text-danger">*</span></label><select id="sched-location" class="admin-select"><option value="">請選擇</option></select></div>
+            <div class="admin-form-group" style="flex:2">
+              <label>票號 <span class="text-danger">*</span></label>
+              <div style="display:flex; gap:5px;">
+                <input type="text" id="sched-ticket-id" class="admin-input" placeholder="例: 08Y53652" onkeydown="if(event.key==='Enter') AdminSystem.fetchScheduleMasterInfo()">
+                <button class="admin-btn admin-btn-sm" onclick="AdminSystem.fetchScheduleMasterInfo()" style="padding:0 10px; background:#0288d1;"><i class="fa-solid fa-magnifying-glass"></i> 帶入</button>
+              </div>
+            </div>
+          </div>
+          <div class="admin-form-row">
+            <div class="admin-form-group" style="flex:2"><label>票品名稱</label><input type="text" id="sched-name" class="admin-input" placeholder="輸入票號後按「帶入」自動帶出,也可自行輸入/修改"></div>
+            <div class="admin-form-group"><label>數量 <span class="text-danger">*</span></label><input type="number" id="sched-qty" class="admin-input" min="1" placeholder="10"></div>
+          </div>
+          <button class="admin-btn" id="sched-add-btn" onclick="AdminSystem.addScheduleItem()"><i class="fa-solid fa-plus"></i> 新增這筆項目</button>
+          <div id="sched-add-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3><i class="fa-solid fa-list-check"></i> 依配票單號查詢並套用補貨<span class="info-tip" tabindex="0" data-tip="套用後庫存立即生效並寫入進退庫紀錄;已套用的品項不會被每日自動排程(pg_cron)重複套用。">ⓘ</span></h3>
+          </div>
+          <div style="display:flex; gap: var(--sp-2);">
+            <input type="text" id="sched-lookup-ref" class="admin-input" placeholder="輸入配票單號" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') AdminSystem.lookupScheduleOrder()">
+            <button class="admin-btn admin-btn-sm" onclick="AdminSystem.lookupScheduleOrder()"><i class="fa-solid fa-magnifying-glass"></i> 查詢</button>
+          </div>
+          <div id="sched-lookup-result" style="margin-top: var(--sp-3);"></div>
         </div>
       </div>
 
@@ -1063,14 +1111,16 @@
     area.innerHTML = html + '</tbody></table>';
   }
 
-  function doRestock(id, name) {
+  async function doRestock(id, name) {
     const qty = prompt(`[${name}] 補入 ${myUser.location || '預設攤位'} 的數量:`, "10");
-    if (qty && !isNaN(qty)) {
-      showToast("<i class='fa-solid fa-spinner fa-spin'></i> 補貨處理中...");
-      // TODO(Phase 4): 取代 addStock(id, qty, account, location) ——
-      // 直接 update product_stock(quantity)並 insert 一筆 stock_logs。
-      showToast("尚未接上 Supabase(Phase 4 才會實作補貨)");
-    }
+    if (!qty || isNaN(qty) || Number(qty) <= 0) return;
+    showToast("<i class='fa-solid fa-spinner fa-spin'></i> 補貨處理中...");
+    const { error } = await supabaseClient.rpc('restock_product', {
+      p_product_id: id, p_location_id: myUser.locationId, p_qty: parseInt(qty)
+    });
+    if (error) { console.error(error); showToast("<i class='fa-solid fa-circle-xmark'></i> 補貨失敗"); return; }
+    showToast("<i class='fa-solid fa-circle-check'></i> 補貨成功");
+    refreshProducts();
   }
 
   function frontendParseBOM(str) { let res = []; if(!str) return res; let parts = str.split(','); for(let i=0; i<parts.length; i++) { let pair = parts[i].split(':'); if(pair.length === 2) res.push({id: pair[0].trim(), qty: parseInt(pair[1].trim())}); } return res; }
@@ -1105,6 +1155,8 @@ const AdminSystem = {
     if (tabName === 'users') this.loadUsers();
     if (tabName === 'products') this.loadProducts();
     if (tabName === 'reports') this.loadReports();
+    if (tabName === 'records') this.loadAllRecords();
+    if (tabName === 'schedule') this.initSchedulePanel();
   },
 
   // ==================== 模組 1:設定管理(settings 表) ====================
@@ -1683,6 +1735,184 @@ const AdminSystem = {
     document.getElementById('admin-rep-deductTable').innerHTML = deductList.length === 0
       ? '<tr><td colspan="4" align="center">查無扣庫資料</td></tr>'
       : deductList.map((item, i) => `<tr><td>${i+1}</td><td><b>${item.id}</b></td><td>${item.name}</td><td align="center" class="text-info">${item.qty}</td></tr>`).join('');
+  },
+
+  // ==================== 模組 5:全支局銷售總覽(records 表,ADMIN 專用) ====================
+  allRecordsRaw: [],
+
+  loadAllRecords: async function() {
+    const branchSelect = document.getElementById('admin-rec-branch');
+    if (branchSelect.options.length <= 1) {
+      const { data: profs } = await supabaseClient.from('profiles').select('branch');
+      const branches = [...new Set((profs || []).map(p => p.branch).filter(Boolean))].sort();
+      branchSelect.innerHTML = '<option value="">所有支局</option>' + branches.map(b => `<option value="${b}">${b}</option>`).join('');
+    }
+    const locSelect = document.getElementById('admin-rec-location');
+    if (locSelect.options.length <= 1 && myUser.locationList && myUser.locationList.length > 0) {
+      locSelect.innerHTML = '<option value="">所有攤位</option>' + myUser.locationList.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+    }
+
+    const container = document.getElementById('admin-rec-table-container');
+    container.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fa-solid fa-spinner fa-spin"></i> 搜尋中...</div>';
+
+    const kwRaw = document.getElementById('admin-rec-keyword').value.trim();
+    const kw = kwRaw.replace(/,/g, '');
+    const date = document.getElementById('admin-rec-date').value;
+    const branch = document.getElementById('admin-rec-branch').value;
+    const locId = parseInt(document.getElementById('admin-rec-location').value) || null;
+    const limit = parseInt(document.getElementById('admin-rec-limit').value) || 50;
+
+    let query = supabaseClient.from('records').select('*').order('created_at', { ascending: false }).limit(limit);
+    if (kw) query = query.or(`ticket_id.ilike.%${kw}%,product_name.ilike.%${kw}%`);
+    if (date) query = query.gte('created_at', `${date}T00:00:00+08:00`).lt('created_at', `${date}T23:59:59.999+08:00`);
+    if (branch) query = query.eq('branch', branch);
+    if (locId) query = query.eq('location_id', locId);
+
+    const { data: rows, error } = await query;
+    if (error) {
+      console.error(error);
+      container.innerHTML = '<div style="text-align:center; padding:30px;"><i class="fa-solid fa-circle-xmark"></i> 搜尋失敗</div>';
+      document.getElementById('admin-rec-summary').style.display = 'none';
+      this.allRecordsRaw = [];
+      return;
+    }
+    if (!rows || rows.length === 0) {
+      container.innerHTML = '<div style="text-align:center; padding:30px;">無資料</div>';
+      document.getElementById('admin-rec-summary').style.display = 'none';
+      this.allRecordsRaw = [];
+      return;
+    }
+
+    this.allRecordsRaw = rows;
+    const locNameById = {};
+    (myUser.locationList || []).forEach(l => { locNameById[l.id] = l.name; });
+
+    let total = 0;
+    const uniqueOrders = new Set();
+    let html = '<table class="admin-table"><thead><tr><th>#</th><th>時間</th><th>支局</th><th>攤位</th><th>票號</th><th>品名</th><th class="text-right">售價</th><th>管理</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      total += Number(r.total);
+      uniqueOrders.add(r.order_id);
+      const timeStr = new Date(r.created_at).toLocaleString('zh-TW', { hour12: false });
+      html += `<tr><td>${i+1}</td><td>${timeStr}</td><td>${r.branch || ''}</td><td>${locNameById[r.location_id] || ''}</td><td>${r.ticket_id}</td><td>${r.product_name}</td><td align="right" class="amount-danger">$${Number(r.total).toLocaleString()}</td><td align="center"><button class="btn-delete" onclick="AdminSystem.deleteAllRecord('${r.order_id}')"><i class="fa-solid fa-trash"></i> 刪除</button></td></tr>`;
+    });
+    container.innerHTML = html + '</tbody></table>';
+    document.getElementById('admin-rec-total').innerHTML = uniqueOrders.size + " 筆訂單 / $" + total.toLocaleString();
+    document.getElementById('admin-rec-summary').style.display = 'block';
+  },
+
+  deleteAllRecord: async function(orderId) {
+    const orderRows = (this.allRecordsRaw || []).filter(r => r.order_id === orderId);
+    const count = orderRows.length;
+    const total = orderRows.reduce((s, r) => s + Number(r.total || 0), 0);
+    const msg = count > 0
+      ? `⚠️ 這筆訂單共 ${count} 項、金額 $${total.toLocaleString()},確定要整筆退庫嗎?庫存將退回原發售地點。`
+      : "⚠️ 警告:確定要刪除此筆資料?庫存將退回原發售地點。";
+    if (!confirm(msg)) return;
+
+    const { data, error } = await supabaseClient.rpc('refund_order', { p_order_id: orderId });
+    if (error) { console.error(error); alert("❌ 退庫失敗,請重新整理頁面"); return; }
+    if (data.status === 'ERROR') { alert("❌ " + data.message); return; }
+
+    showToast("<i class='fa-solid fa-trash'></i> 已退庫");
+    this.loadAllRecords();
+    refreshProducts();
+  },
+
+  // ==================== 模組 6:排程補貨(schedule_stock 表 + pg_cron) ====================
+  scheduleLocations: [],
+
+  initSchedulePanel: async function() {
+    const { data: locs } = await supabaseClient.from('locations').select('id,name').order('sort_order');
+    this.scheduleLocations = locs || [];
+    const sel = document.getElementById('sched-location');
+    sel.innerHTML = '<option value="">請選擇</option>' + this.scheduleLocations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+  },
+
+  fetchScheduleMasterInfo: async function() {
+    const id = document.getElementById('sched-ticket-id').value.trim();
+    if (!id) { alert("請先輸入票號!"); return; }
+    const { data: m } = await supabaseClient.from('master_products').select('name').eq('ticket_id', id).single();
+    if (m) {
+      document.getElementById('sched-name').value = m.name;
+    } else {
+      alert("❌ 主檔查無此票號,可自行輸入票品名稱");
+    }
+  },
+
+  addScheduleItem: async function() {
+    const orderRef = document.getElementById('sched-order-ref').value.trim();
+    const branch = document.getElementById('sched-branch').value.trim();
+    const date = document.getElementById('sched-date').value;
+    const locationId = parseInt(document.getElementById('sched-location').value) || null;
+    const ticketId = document.getElementById('sched-ticket-id').value.trim();
+    const name = document.getElementById('sched-name').value.trim();
+    const qty = parseInt(document.getElementById('sched-qty').value);
+
+    if (!orderRef) { alert("⚠️ 配票單號不可為空!"); return; }
+    if (!date) { alert("⚠️ 配票日期不可為空!"); return; }
+    if (!locationId) { alert("⚠️ 請選擇活動地點!"); return; }
+    if (!ticketId) { alert("⚠️ 票號不可為空!"); return; }
+    if (!name) { alert("⚠️ 票品名稱不可為空!"); return; }
+    if (!qty || qty <= 0) { alert("⚠️ 數量必須大於 0!"); return; }
+
+    const btn = document.getElementById('sched-add-btn');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 新增中..."; btn.disabled = true;
+
+    const { error } = await supabaseClient.from('schedule_stock').insert({
+      order_ref: orderRef, branch: branch || null, scheduled_date: date,
+      location_id: locationId, ticket_id: ticketId, product_name: name, qty: qty
+    });
+
+    btn.innerHTML = "<i class='fa-solid fa-plus'></i> 新增這筆項目"; btn.disabled = false;
+
+    if (error) {
+      alert("❌ 新增失敗:" + error.message);
+      return;
+    }
+
+    // 配票單號/支局/配票日期/活動地點保留,方便連續輸入同一張配票單的下一個品項
+    document.getElementById('sched-ticket-id').value = "";
+    document.getElementById('sched-name').value = "";
+    document.getElementById('sched-qty').value = "";
+    document.getElementById('sched-add-result').innerHTML = `<i class="fa-solid fa-circle-check"></i> 已新增「${ticketId} ${name}」x${qty} 到配票單 ${orderRef}`;
+  },
+
+  lookupScheduleOrder: async function() {
+    const orderRef = document.getElementById('sched-lookup-ref').value.trim();
+    if (!orderRef) { alert("請先輸入配票單號!"); return; }
+    const resultEl = document.getElementById('sched-lookup-result');
+    resultEl.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> 查詢中...</div>';
+
+    const locNameById = {};
+    this.scheduleLocations.forEach(l => { locNameById[l.id] = l.name; });
+
+    const { data: rows, error } = await supabaseClient.from('schedule_stock').select('*').eq('order_ref', orderRef).order('id');
+    if (error) { console.error(error); resultEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 查詢失敗'; return; }
+    if (!rows || rows.length === 0) { resultEl.innerHTML = '查無此配票單號的資料。'; return; }
+
+    const hasPending = rows.some(r => !r.applied_at);
+    let html = '<table class="admin-table"><thead><tr><th>#</th><th>支局</th><th>活動地點</th><th>票號</th><th>品名</th><th class="text-center">數量</th><th>配票日期</th><th>狀態</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      const status = r.applied_at ? '<span class="text-primary">已套用</span>' : '<span class="text-danger">未套用</span>';
+      html += `<tr><td>${i+1}</td><td>${r.branch || ''}</td><td>${locNameById[r.location_id] || ''}</td><td>${r.ticket_id}</td><td>${r.product_name}</td><td align="center">${r.qty}</td><td>${r.scheduled_date}</td><td>${status}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    if (hasPending) {
+      html += `<button class="admin-btn" style="margin-top: var(--sp-3);" onclick="AdminSystem.applyScheduleOrder('${orderRef}')"><i class="fa-solid fa-circle-check"></i> 套用補貨</button>`;
+    }
+    resultEl.innerHTML = html;
+  },
+
+  applyScheduleOrder: async function(orderRef) {
+    if (!confirm(`確定要套用配票單「${orderRef}」裡所有未套用的品項嗎?庫存將立即增加。`)) return;
+    const { data, error } = await supabaseClient.rpc('apply_schedule_stock_order', { p_order_ref: orderRef });
+    if (error) { console.error(error); alert("❌ 套用失敗,請重新整理頁面"); return; }
+    if (data.status === 'ERROR') { alert("❌ " + data.message); return; }
+
+    showToast(`<i class="fa-solid fa-circle-check"></i> 已套用 ${data.applied_count} 筆補貨`);
+    this.lookupScheduleOrder();
+    refreshProducts();
   }
 
 };
