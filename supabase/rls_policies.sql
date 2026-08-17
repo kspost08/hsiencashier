@@ -148,13 +148,14 @@ create policy "schedule_stock_admin_only"
   with check (current_profile_role() = 'ADMIN');
 
 -- ============================================================
--- settings:所有登入者可讀(POS 開機要顯示 title/notice 等),
+-- settings:任何人可讀(含未登入),因為登入畫面本身就要顯示
+-- title/version/notice——這些欄位本來就不是機密資料。
 -- 只有 ADMIN 可寫。
 -- ============================================================
 
-create policy "settings_select_authenticated"
+create policy "settings_select_public"
   on settings for select
-  using (auth.role() = 'authenticated');
+  using (true);
 
 create policy "settings_write_admin"
   on settings for all

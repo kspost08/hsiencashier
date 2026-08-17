@@ -4,66 +4,85 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>顧客顯示螢幕</title>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
+    :root {
+      /* 跟 index.html 共用同一套配色識別,讓兩個畫面像同一個產品 */
+      --primary: #546e7a; --primary-hover: #455a64; --danger: #d35f5f; --success: #66bb6a;
+      --bg: #f4f1ea; --card-bg: #ffffff; --text-main: #37474f; --text-sub: #78909c;
+
+      /* 顧客顯示螢幕是遠距離閱讀的看板,字級整體比 index.html 大一截,
+         但用同一組 xs~3xl 命名方式,概念上是同一套系統。 */
+      --fs-xs: 13px; --fs-sm: 15px; --fs-base: 18px; --fs-md: 20px;
+      --fs-lg: 24px; --fs-xl: 32px; --fs-2xl: 40px; --fs-3xl: 46px;
+      --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
+    }
+    * { box-sizing: border-box; }
     body {
       font-family: 'Noto Sans TC', sans-serif;
       margin: 0; padding: 0;
-      background: #f4f6f8;
+      background: var(--bg);
+      color: var(--text-main);
       display: flex; flex-direction: column;
       height: 100vh; overflow: hidden;
+      font-size: var(--fs-base);
     }
     .header {
-      background: #1976d2; color: white;
-      padding: 15px; text-align: center;
-      font-size: 20px; font-weight: bold;
+      background: var(--primary); color: white;
+      padding: var(--sp-4); text-align: center;
+      font-size: var(--fs-md); font-weight: 700;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       flex-shrink: 0;
     }
     .content {
-      flex: 1; padding: 15px;
+      flex: 1; padding: var(--sp-4);
       overflow-y: auto;
       display: flex; flex-direction: column;
     }
     .empty-state {
       flex: 1; display: flex;
       flex-direction: column; justify-content: center; align-items: center;
-      color: #b0bec5;
+      color: var(--text-sub);
     }
-    .empty-icon { font-size: 60px; margin-bottom: 10px; opacity: 0.5; }
+    .empty-icon { font-size: 60px; margin-bottom: var(--sp-2); opacity: 0.5; }
 
-    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 10px; }
-    th { background: #eceff1; color: #555; padding: 10px; text-align: left; font-size: 16px; border-bottom: 2px solid #ddd; }
-    td { padding: 12px 10px; border-bottom: 1px solid #eee; font-size: 18px; color: #333; }
-    .col-price { text-align: right; font-weight: bold; color: #1976d2; }
+    table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: var(--radius-md); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: var(--sp-2); }
+    th { background: #eceff1; color: var(--text-main); padding: var(--sp-3); text-align: left; font-size: var(--fs-sm); font-weight: 600; border-bottom: 2px solid #ddd; }
+    td { padding: var(--sp-3); border-bottom: 1px solid #eee; font-size: var(--fs-base); color: #333; }
+    .col-price { text-align: right; font-weight: 700; color: var(--primary); }
 
     .footer {
       background: #263238; color: white;
-      padding: 15px 20px 55px 20px;
+      padding: var(--sp-4) var(--sp-5) 55px var(--sp-5);
       display: flex; flex-direction: column;
-      gap: 10px;
+      gap: var(--sp-2);
       box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
       flex-shrink: 0;
     }
 
     .stats-row {
       display: flex; justify-content: space-between;
-      padding-bottom: 10px; border-bottom: 1px solid #455a64;
+      padding-bottom: var(--sp-2); border-bottom: 1px solid #455a64;
     }
     .stat-box { display: flex; flex-direction: column; align-items: center; }
-    .stat-label { font-size: 12px; color: #b0bec5; margin-bottom: 2px; }
-    .stat-value { font-size: 18px; font-weight: bold; color: #fff; font-family: monospace; }
+    .stat-label { font-size: var(--fs-xs); color: #b0bec5; margin-bottom: 2px; }
+    .stat-value { font-size: var(--fs-md); font-weight: 700; color: #fff; font-family: monospace; }
 
     .total-row {
-      display: flex; justify-content: space-between; align-items: center; margin-top: 5px;
+      display: flex; justify-content: space-between; align-items: center; margin-top: var(--sp-1);
     }
-    .total-label { font-size: 20px; color: #ffeb3b; font-weight: bold; }
-    .total-price { font-size: 42px; color: #ffeb3b; font-weight: bold; font-family: monospace; }
+    .total-label { font-size: var(--fs-lg); color: #ffca28; font-weight: 700; }
+    .total-price { font-size: var(--fs-3xl); color: #ffca28; font-weight: 700; font-family: monospace; }
 
-    .success-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(46, 125, 50, 0.98); display: none; justify-content: center; align-items: center; flex-direction: column; color: white; z-index: 999; }
+    .success-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(55, 100, 60, 0.98); display: none; justify-content: center; align-items: center; flex-direction: column; color: white; z-index: 999; }
+    .success-overlay .success-icon { font-size: 80px; }
+    .success-overlay .success-text { font-size: var(--fs-xl); font-weight: 700; }
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
   </style>
 </head>
 <body>
@@ -75,7 +94,7 @@
       <div>等待同步中...</div>
     </div>
     <table id="itemTable" style="display:none;">
-      <thead><tr><th>商品</th><th style="width:15%;text-align:center;">數</th><th style="width:30%;text-align:right;">金額</th></tr></thead>
+      <thead><tr><th>商品</th><th style="width:15%;" class="text-center">數</th><th style="width:30%;" class="text-right">金額</th></tr></thead>
       <tbody id="itemList"></tbody>
     </table>
   </div>
@@ -93,8 +112,8 @@
   </div>
 
   <div id="successOverlay" class="success-overlay">
-    <div style="font-size:80px;">✅</div>
-    <div style="font-size:30px; font-weight:bold;">謝謝惠顧</div>
+    <div class="success-icon">✅</div>
+    <div class="success-text">謝謝惠顧</div>
   </div>
 
   <script src="config.js"></script>
@@ -158,7 +177,7 @@
         invoiceSum += (p + f);
         stampSum += s;
         grandTotal += t;
-        return `<tr><td>${item.name}</td><td style="text-align:center;">1</td><td class="col-price">$${t.toLocaleString()}</td></tr>`;
+        return `<tr><td>${item.name}</td><td class="text-center">1</td><td class="col-price">$${t.toLocaleString()}</td></tr>`;
       }).join('');
 
       countDisplay.innerText = count;
