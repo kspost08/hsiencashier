@@ -7,6 +7,7 @@
   <link rel="icon" href="https://drive.google.com/uc?export=download&id=1deGURGonNW7HIjHAEFpFXMHntx_KTMeb" type="image/png">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -339,6 +340,14 @@
       </div>
 
       <div id="admin-panel-products" class="admin-panel">
+        <div class="admin-card">
+          <div class="admin-card-header"><h3>📤 匯入商品主檔</h3></div>
+          <p class="admin-note">上傳票品主檔 Excel(可一次選多個檔案),會依「類別+票品+票號」組成票號寫入主檔;已存在的票號會跳過,不會覆蓋。</p>
+          <input type="file" id="master-upload-input" accept=".xlsx" multiple class="admin-input">
+          <button class="admin-btn" id="master-upload-btn" onclick="AdminSystem.uploadMasterFiles()">上傳並匯入</button>
+          <div id="master-upload-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
+        </div>
+
         <div class="admin-card">
           <div class="admin-card-header">
             <h3>🏷️ 商品與初始庫存維護</h3>
@@ -1260,6 +1269,121 @@ const AdminSystem = {
   },
 
   // ==================== 模組 3:商品維護(products / product_stock 表) ====================
+
+  // 匯入商品主檔(master_products):把高雄郵局內部的票品主檔 Excel 直接讀進來,
+  // 不用等 Phase 6 整批資料搬遷。欄位對照、票號組法、單價/郵票/製作費拆解規則
+  // 都是實際讀過範例檔案 + 跟使用者確認過的,不是憑空猜的。
+  uploadMasterFiles: async function() {
+    const input = document.getElementById('master-upload-input');
+    const files = input.files;
+    if (!files || files.length === 0) { alert("請先選擇檔案"); return; }
+    const fileCount = files.length; // 先存起來,input.value 待會會清空、files 這個參照也會一起變空
+
+    const btn = document.getElementById('master-upload-btn');
+    const resultEl = document.getElementById('master-upload-result');
+    btn.innerText = "⏳ 解析中..."; btn.disabled = true;
+    resultEl.textContent = "";
+
+    const rowsById = {}; // ticket_id -> row,批次內用 ticket_id 去重(同一批次重複只取第一筆)
+    let totalRows = 0, malformedRows = 0, batchDuplicates = 0;
+
+    for (const file of files) {
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        for (let i = 1; i < rows.length; i++) { // 第 0 列是表頭
+          const r = rows[i];
+          if (!r || r.length === 0) continue;
+          totalRows++;
+
+          const category = String(r[1] || '').trim();
+          const item = String(r[2] || '').trim();
+          const ticketNo = String(r[3] || '').trim();
+          const name = String(r[7] || '').trim();
+          if (!category || !item || !ticketNo || !name) { malformedRows++; continue; }
+
+          const ticketId = category + item + ticketNo;
+          const unitPrice = Number(r[5]) || 0;
+
+          // 三組「連動會計科目 + 金額 + 課稅別」:index 17~19、20~22、23~25。
+          // 課稅別字串包含「免」的算免稅(→郵票),其餘算應稅(→製作費)。
+          const entries = [];
+          [[18, 19], [21, 22], [24, 25]].forEach(([amtIdx, taxIdx]) => {
+            const amt = Number(r[amtIdx]) || 0;
+            if (amt > 0) entries.push({ amt, exempt: String(r[taxIdx] || '').includes('免') });
+          });
+
+          let price, stamp, fee;
+          if (entries.length <= 1) {
+            price = unitPrice; stamp = 0; fee = 0;
+          } else {
+            price = 0;
+            stamp = entries.filter(e => e.exempt).reduce((s, e) => s + e.amt, 0);
+            fee = entries.filter(e => !e.exempt).reduce((s, e) => s + e.amt, 0);
+          }
+          const total = price + stamp + fee;
+
+          if (rowsById[ticketId]) { batchDuplicates++; continue; }
+          rowsById[ticketId] = { ticket_id: ticketId, name, price, stamp, fee, total };
+        }
+      } catch (e) {
+        console.error(e);
+        alert(`❌ 檔案「${file.name}」解析失敗:` + e.message);
+        btn.innerText = "上傳並匯入"; btn.disabled = false;
+        return;
+      }
+    }
+
+    const parsedRows = Object.values(rowsById);
+
+    // 先查資料庫裡已經有哪些票號,才能算出「這次真的會新增幾筆」,而不是事後用 upsert 回傳資料猜。
+    // PostgREST 單次 select 預設最多回 1000 筆,主檔筆數早就超過,要用 .range() 分頁撈完。
+    btn.innerText = "⏳ 檢查現有資料...";
+    const existingIds = new Set();
+    let rangeStart = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data: existingPage, error: existingError } = await supabaseClient
+        .from('master_products')
+        .select('ticket_id')
+        .range(rangeStart, rangeStart + pageSize - 1);
+      if (existingError) {
+        alert("❌ 讀取現有主檔失敗:" + existingError.message);
+        btn.innerText = "上傳並匯入"; btn.disabled = false;
+        return;
+      }
+      (existingPage || []).forEach(r => existingIds.add(r.ticket_id));
+      if (!existingPage || existingPage.length < pageSize) break;
+      rangeStart += pageSize;
+    }
+    const newRows = parsedRows.filter(r => !existingIds.has(r.ticket_id));
+    const dbDuplicates = parsedRows.length - newRows.length;
+
+    btn.innerText = `⏳ 寫入中 (0/${newRows.length})...`;
+    const batchSize = 500;
+    for (let i = 0; i < newRows.length; i += batchSize) {
+      const batch = newRows.slice(i, i + batchSize);
+      const { error: upsertError } = await supabaseClient
+        .from('master_products')
+        .upsert(batch, { onConflict: 'ticket_id', ignoreDuplicates: true });
+      if (upsertError) {
+        alert("❌ 寫入失敗:" + upsertError.message);
+        btn.innerText = "上傳並匯入"; btn.disabled = false;
+        return;
+      }
+      btn.innerText = `⏳ 寫入中 (${Math.min(i + batchSize, newRows.length)}/${newRows.length})...`;
+    }
+
+    btn.innerText = "上傳並匯入"; btn.disabled = false;
+    input.value = "";
+    resultEl.textContent = `處理了 ${fileCount} 個檔案,共 ${totalRows} 列;匯入 ${newRows.length} 筆新資料;` +
+      `略過 ${dbDuplicates + batchDuplicates} 筆重複票號(資料庫已有 ${dbDuplicates} 筆、上傳批次內重複 ${batchDuplicates} 筆);` +
+      `${malformedRows} 列格式不符已略過。`;
+  },
+
   loadProducts: async function() {
     document.getElementById('admin-products-table-container').innerHTML = "⏳ 讀取商品資料庫中...";
 

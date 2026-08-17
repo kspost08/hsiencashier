@@ -11,3 +11,4 @@ node_modules/
 
 # Claude Code 個人本機設定,不用進版控
 .claude/settings.local.json
+.upload-test/
