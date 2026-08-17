@@ -52,6 +52,25 @@
     .btn-delete { background:#ffebee; color:#c62828; border:1px solid #ffcdd2; border-radius: var(--radius-sm); cursor:pointer; padding: var(--sp-1) var(--sp-2); font-family: inherit; font-size: var(--fs-sm); }
     .btn-delete:hover { background:#ffcdd2; }
 
+    /* 小型 ⓘ 說明圖示,hover/focus(觸控可點一下取得 focus)顯示提示框,純 CSS 不用額外 JS */
+    .info-tip {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:16px; height:16px; border-radius:50%;
+      background:#90a4ae; color:#fff; font-size:11px; font-weight:700;
+      cursor:help; margin-left:4px; position:relative; vertical-align:middle;
+    }
+    .info-tip:hover::after, .info-tip:focus::after {
+      content: attr(data-tip);
+      position:absolute; left:50%; bottom:135%; transform:translateX(-50%);
+      background:#37474f; color:#fff; padding:8px 10px; border-radius:6px;
+      font-size:12px; font-weight:400; line-height:1.5; white-space:pre-line;
+      width:240px; z-index:50; box-shadow:0 2px 8px rgba(0,0,0,0.25); text-align:left;
+    }
+    .info-tip:hover::before, .info-tip:focus::before {
+      content:''; position:absolute; left:50%; bottom:100%; transform:translateX(-50%);
+      border:5px solid transparent; border-top-color:#37474f; z-index:50;
+    }
+
     /* 一組共用按鈕基底,.btn-save/.btn-qr/.btn-activity/.btn-logout/.btn-stamp/.admin-btn* 都是它的變化版 */
     .btn-base { border: none; border-radius: var(--radius-sm); font-family: inherit; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; }
 
@@ -467,7 +486,7 @@
                 </div>
               </div>
               <div class="admin-form-group" style="flex:2">
-                <label>品名 (自動帶入)</label>
+                <label>主檔參考品名(唯讀)</label>
                 <input type="text" id="admin-prod-name" class="admin-input" disabled placeholder="輸入票號後點擊「帶入」">
               </div>
             </div>
@@ -478,8 +497,13 @@
               <div class="admin-form-group"><label>製作費 (自動)</label><input type="text" id="admin-prod-fee" class="admin-input" disabled placeholder="-"></div>
             </div>
             <div class="admin-form-group">
-               <label class="text-danger">售價 (直抓主檔總額)</label>
+               <label class="text-danger">售價(主檔試算,唯讀)<span class="info-tip" tabindex="0" data-tip="此金額 = 主檔的 單價+郵票+製作費 加總試算,不可直接編輯。若金額有誤,請回「匯入商品主檔」重新上傳正確的主檔資料。">ⓘ</span></label>
                <input type="text" id="admin-prod-total" class="admin-input amount-danger" disabled placeholder="-">
+            </div>
+
+            <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
+              <label>🏷️ 前端顯示名稱 <span class="text-danger">*</span><span class="info-tip" tabindex="0" data-tip="這是實際會顯示在收銀刷讀、購物車、顧客顯示螢幕、銷售紀錄與報表中的名稱,可以自訂成比主檔品名更簡短好辨識的名字。">ⓘ</span></label>
+              <input type="text" id="admin-prod-display-name" class="admin-input" placeholder="例: 波波鴿好運郵票">
             </div>
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
@@ -487,8 +511,8 @@
               <div id="admin-prod-stocks-container" style="background:#f5f5f5; padding:10px; border-radius:6px; margin-top:5px;"></div>
             </div>
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
-              <label>🔧 BOM 組合設定 (選填)</label>
-              <input type="text" id="admin-prod-bom" class="admin-input" placeholder="例: A001:1,B002:2">
+              <label>🔧 BOM 組合設定 (選填)<span class="info-tip" tabindex="0" data-tip="格式為「票號:數量,票號:數量」。例如組合包內含 1 張 08Y53652 與 2 張 08Y53653,就填「08Y53652:1,08Y53653:2」;要加第三種票券也可以,例如再加 1 張 08Y53654 就變成「08Y53652:1,08Y53653:2,08Y53654:1」。結帳時系統會依此比例同時扣除各票號的庫存。">ⓘ</span></label>
+              <input type="text" id="admin-prod-bom" class="admin-input" placeholder="例: 08Y53652:1,08Y53653:2">
               <div class="section-sub-label" style="margin-top: var(--sp-1);">若為組合包才需填寫,用半形逗號隔開。</div>
             </div>
 
@@ -1438,6 +1462,9 @@ const AdminSystem = {
       document.getElementById('admin-prod-stamp').value = m.stamp;
       document.getElementById('admin-prod-fee').value = m.fee;
       document.getElementById('admin-prod-total').value = m.total;
+      // 只在顯示名稱還是空的時候才帶入主檔品名當預設建議值,不覆蓋使用者已經手動改過的自訂名稱
+      const displayNameEl = document.getElementById('admin-prod-display-name');
+      if (!displayNameEl.value.trim()) displayNameEl.value = m.name;
     } else {
       alert("❌ 主檔查無此票號");
       document.getElementById('admin-prod-name').value = "";
@@ -1473,13 +1500,15 @@ const AdminSystem = {
       document.getElementById('admin-prod-id').value = p.id;
       // 票號是其他表(product_stock/records)跟其他商品 BOM 參照的主鍵,編輯時鎖住不可改,
       // 避免撞 FK 或留下 BOM 參照到不存在 id 的髒資料(跟 legacy 平面 Sheet 沒有真正參照完整性不同)。
-      idInput.disabled = true; fetchBtn.disabled = true;
+      // 帶入按鈕不鎖──它只讀票號的值(不是要改票號),編輯時allow重新查一次主檔核對/刷新單價郵票製作費。
+      idInput.disabled = true; fetchBtn.disabled = false;
       document.getElementById('admin-prod-name').value = p.name || "(未找到品名)";
       document.getElementById('admin-prod-price').value = p.price;
       document.getElementById('admin-prod-stamp').value = p.stamp;
       document.getElementById('admin-prod-fee').value = p.fee;
       document.getElementById('admin-prod-total').value = p.total;
       document.getElementById('admin-prod-bom').value = p.bom;
+      document.getElementById('admin-prod-display-name').value = p.name || "";
 
       this.productLocations.forEach(loc => {
         const el = document.getElementById(`admin-prod-stock-${loc.id}`);
@@ -1498,6 +1527,7 @@ const AdminSystem = {
       document.getElementById('admin-prod-fee').value = "";
       document.getElementById('admin-prod-total').value = "";
       document.getElementById('admin-prod-bom').value = "";
+      document.getElementById('admin-prod-display-name').value = "";
     }
   },
 
@@ -1506,6 +1536,9 @@ const AdminSystem = {
   saveProduct: async function() {
     const id = document.getElementById('admin-prod-id').value.trim();
     if (!id) { alert("⚠️ 票號不可為空!"); return; }
+
+    const displayName = document.getElementById('admin-prod-display-name').value.trim();
+    if (!displayName) { alert("⚠️ 前端顯示名稱不可為空!"); return; }
 
     const action = document.getElementById('admin-product-action').value;
     const oldId = document.getElementById('admin-product-old-id').value;
@@ -1520,7 +1553,7 @@ const AdminSystem = {
     btn.innerText = "⏳ 儲存中..."; btn.disabled = true;
 
     const productRow = {
-      name: document.getElementById('admin-prod-name').value,
+      name: displayName,
       price: document.getElementById('admin-prod-price').value || 0,
       stamp: document.getElementById('admin-prod-stamp').value || 0,
       fee: document.getElementById('admin-prod-fee').value || 0,
@@ -1556,6 +1589,7 @@ const AdminSystem = {
 
     btn.innerText = "確認儲存"; btn.disabled = false;
     AdminSystem.closeProductModal(); AdminSystem.loadProducts();
+    refreshProducts(); // 同步刷新收銀掃描用的商品快取,不然剛新增/改過的商品要重新整理頁面才刷得到
   },
 
   deleteProduct: async function(id) {
@@ -1564,6 +1598,7 @@ const AdminSystem = {
     const { error } = await supabaseClient.from('products').delete().eq('id', id);
     if (error) { alert("❌ 刪除失敗:" + error.message); }
     AdminSystem.loadProducts();
+    refreshProducts(); // 同上,刪除後也要讓掃描端立刻反映,不然還能繼續刷到已刪除的商品
   },
 
   // ==================== 模組 4:戰情室報表(records 表) ====================
