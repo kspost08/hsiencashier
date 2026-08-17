@@ -400,8 +400,27 @@
 
       <div id="admin-panel-schedule" class="admin-panel">
         <div class="admin-card">
+          <div class="admin-card-header"><h3><i class="fa-solid fa-upload"></i> 匯入配票紀錄</h3></div>
+          <p class="admin-note">上傳配票紀錄 Excel(高雄郵局內部匯出格式),會依「配票單號+票號」寫入暫存區;已存在的組合會跳過,不會覆蓋。匯入後在下方「從配票紀錄選擇加入排程補貨」輸入配票單號查詢即可勾選品項。</p>
+          <input type="file" id="alloc-upload-input" accept=".xlsx" class="admin-input">
+          <button class="admin-btn" id="alloc-upload-btn" onclick="AdminSystem.uploadAllocationRecords()">上傳並匯入</button>
+          <div id="alloc-upload-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
+        </div>
+
+        <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-calendar-days"></i> 新增配票項目<span class="info-tip" tabindex="0" data-tip="同一個配票單號可以連續新增多個品項——送出後配票單號/支局/配票日期/活動地點不會清空,方便連續輸入同一張配票單的所有品項。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-list-check"></i> 從配票紀錄選擇加入排程補貨<span class="info-tip" tabindex="0" data-tip="輸入配票單號查詢已匯入的配票紀錄,勾選要排程補貨的品項再送出。活動地點如果還沒對應到現有攤位,該列會停用無法勾選,需先到「系統設定」新增攤位。">ⓘ</span></h3>
+          </div>
+          <div style="display:flex; gap: var(--sp-2);">
+            <input type="text" id="alloc-lookup-ref" class="admin-input" placeholder="輸入配票單號" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') AdminSystem.lookupAllocationOrder()">
+            <button class="admin-btn admin-btn-sm" onclick="AdminSystem.lookupAllocationOrder()"><i class="fa-solid fa-magnifying-glass"></i> 查詢</button>
+          </div>
+          <div id="alloc-lookup-result" style="margin-top: var(--sp-3);"></div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3><i class="fa-solid fa-calendar-days"></i> 手動新增單筆配票項目<span class="info-tip" tabindex="0" data-tip="同一個配票單號可以連續新增多個品項——送出後配票單號/支局/配票日期/活動地點不會清空,方便連續輸入同一張配票單的所有品項。適合沒有正式配票紀錄匯出檔的臨時補貨。">ⓘ</span></h3>
           </div>
           <div class="admin-form-row">
             <div class="admin-form-group"><label>配票單號 <span class="text-danger">*</span></label><input type="text" id="sched-order-ref" class="admin-input" placeholder="例: PC20260901-01"></div>
@@ -1913,6 +1932,180 @@ const AdminSystem = {
     showToast(`<i class="fa-solid fa-circle-check"></i> 已套用 ${data.applied_count} 筆補貨`);
     this.lookupScheduleOrder();
     refreshProducts();
+  },
+
+  // ---- 配票紀錄 Excel 匯入(allocation_records 表)----
+  allocationLookupRows: [],
+
+  uploadAllocationRecords: async function() {
+    const input = document.getElementById('alloc-upload-input');
+    const files = input.files;
+    if (!files || files.length === 0) { alert("請先選擇檔案"); return; }
+    const fileCount = files.length;
+
+    const btn = document.getElementById('alloc-upload-btn');
+    const resultEl = document.getElementById('alloc-upload-result');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 解析中..."; btn.disabled = true;
+    resultEl.textContent = "";
+
+    const rowsByKey = {}; // "配票單號|||票號" -> row,批次內去重
+    let totalRows = 0, malformedRows = 0, batchDuplicates = 0;
+
+    for (const file of files) {
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        for (let i = 1; i < rows.length; i++) { // 第 0 列是表頭
+          const r = rows[i];
+          if (!r || r.length === 0) continue;
+          totalRows++;
+
+          const orderRef = String(r[0] || '').trim();
+          const dateSerial = r[1];
+          const activityName = String(r[2] || '').trim();
+          const branch = String(r[3] || '').trim();
+          const category = String(r[4] || '').trim();
+          const item = String(r[5] || '').trim();
+          const ticketNo = String(r[6] || '').trim();
+          const name = String(r[7] || '').trim();
+          const unitPrice = Number(r[8]) || 0;
+          const qty = Number(r[9]) || 0;
+          const totalAmount = Number(r[10]) || 0;
+
+          if (!orderRef || !category || !item || !ticketNo || !dateSerial || qty <= 0) { malformedRows++; continue; }
+
+          const ticketId = category + item + ticketNo;
+          // Excel 日期序號換算成 YYYY-MM-DD(Excel 紀元跟 Unix epoch 差 25569 天)
+          const scheduledDate = new Date(Math.round((Number(dateSerial) - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+
+          const key = orderRef + '|||' + ticketId;
+          if (rowsByKey[key]) { batchDuplicates++; continue; }
+          rowsByKey[key] = {
+            order_ref: orderRef, scheduled_date: scheduledDate, activity_name: activityName || null,
+            branch: branch || null, ticket_id: ticketId, product_name: name || null,
+            qty, unit_price: unitPrice, total_amount: totalAmount
+          };
+        }
+      } catch (e) {
+        console.error(e);
+        alert(`❌ 檔案「${file.name}」解析失敗:` + e.message);
+        btn.innerHTML = "上傳並匯入"; btn.disabled = false;
+        return;
+      }
+    }
+
+    const parsedRows = Object.values(rowsByKey);
+
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 檢查現有資料...";
+    const existingKeys = new Set();
+    let rangeStart = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data: existingPage, error: existingError } = await supabaseClient
+        .from('allocation_records').select('order_ref,ticket_id').range(rangeStart, rangeStart + pageSize - 1);
+      if (existingError) {
+        alert("❌ 讀取現有資料失敗:" + existingError.message);
+        btn.innerHTML = "上傳並匯入"; btn.disabled = false;
+        return;
+      }
+      (existingPage || []).forEach(r => existingKeys.add(r.order_ref + '|||' + r.ticket_id));
+      if (!existingPage || existingPage.length < pageSize) break;
+      rangeStart += pageSize;
+    }
+    const newRows = parsedRows.filter(r => !existingKeys.has(r.order_ref + '|||' + r.ticket_id));
+    const dbDuplicates = parsedRows.length - newRows.length;
+
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (0/${newRows.length})...`;
+    const batchSize = 500;
+    for (let i = 0; i < newRows.length; i += batchSize) {
+      const batch = newRows.slice(i, i + batchSize);
+      const { error: upsertError } = await supabaseClient
+        .from('allocation_records').upsert(batch, { onConflict: 'order_ref,ticket_id', ignoreDuplicates: true });
+      if (upsertError) {
+        alert("❌ 寫入失敗:" + upsertError.message);
+        btn.innerHTML = "上傳並匯入"; btn.disabled = false;
+        return;
+      }
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (${Math.min(i + batchSize, newRows.length)}/${newRows.length})...`;
+    }
+
+    btn.innerHTML = "上傳並匯入"; btn.disabled = false;
+    input.value = "";
+    resultEl.textContent = `處理了 ${fileCount} 個檔案,共 ${totalRows} 列;匯入 ${newRows.length} 筆新資料;` +
+      `略過 ${dbDuplicates + batchDuplicates} 筆重複(資料庫已有 ${dbDuplicates} 筆、上傳批次內重複 ${batchDuplicates} 筆);` +
+      `${malformedRows} 列格式不符已略過。`;
+  },
+
+  lookupAllocationOrder: async function() {
+    const orderRef = document.getElementById('alloc-lookup-ref').value.trim();
+    if (!orderRef) { alert("請先輸入配票單號!"); return; }
+    const resultEl = document.getElementById('alloc-lookup-result');
+    resultEl.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> 查詢中...</div>';
+
+    const { data: rows, error } = await supabaseClient.from('allocation_records').select('*').eq('order_ref', orderRef).order('id');
+    if (error) { console.error(error); resultEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 查詢失敗'; return; }
+    if (!rows || rows.length === 0) { resultEl.innerHTML = '查無此配票單號的資料,請確認是否已上傳配票紀錄。'; return; }
+
+    const { data: locs } = await supabaseClient.from('locations').select('id,name');
+    const locIdByName = {};
+    (locs || []).forEach(l => { locIdByName[l.name] = l.id; });
+
+    this.allocationLookupRows = rows; // 存起來給「加入排程補貨」用,不用重查一次
+
+    let html = '<table class="admin-table"><thead><tr><th><input type="checkbox" onclick="AdminSystem.toggleAllAllocationChecks(this)"></th><th>活動地點</th><th>票號</th><th>品名</th><th class="text-center">數量</th><th>配票日期</th><th>狀態</th></tr></thead><tbody>';
+    rows.forEach(r => {
+      const locId = locIdByName[r.activity_name];
+      let statusCell, checkboxAttr;
+      if (r.added_to_schedule_at) {
+        statusCell = '<span class="text-primary">已加入</span>';
+        checkboxAttr = 'disabled';
+      } else if (!locId) {
+        statusCell = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> 找不到攤位「${r.activity_name || '(空白)'}」</span>`;
+        checkboxAttr = 'disabled';
+      } else {
+        statusCell = '<span class="text-sub">未加入</span>';
+        checkboxAttr = '';
+      }
+      html += `<tr><td><input type="checkbox" class="alloc-row-check" data-id="${r.id}" ${checkboxAttr}></td><td>${r.activity_name || ''}</td><td>${r.ticket_id}</td><td>${r.product_name || ''}</td><td align="center">${r.qty}</td><td>${r.scheduled_date}</td><td>${statusCell}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    html += `<button class="admin-btn" style="margin-top: var(--sp-3);" onclick="AdminSystem.addSelectedAllocationsToSchedule()"><i class="fa-solid fa-plus"></i> 加入排程補貨</button>`;
+    resultEl.innerHTML = html;
+  },
+
+  toggleAllAllocationChecks: function(masterCheckbox) {
+    document.querySelectorAll('.alloc-row-check:not(:disabled)').forEach(cb => cb.checked = masterCheckbox.checked);
+  },
+
+  addSelectedAllocationsToSchedule: async function() {
+    const checked = Array.from(document.querySelectorAll('.alloc-row-check:checked'));
+    if (checked.length === 0) { alert("請至少勾選一列!"); return; }
+
+    const { data: locs } = await supabaseClient.from('locations').select('id,name');
+    const locIdByName = {};
+    (locs || []).forEach(l => { locIdByName[l.name] = l.id; });
+
+    const selectedIds = checked.map(cb => parseInt(cb.dataset.id));
+    const rowsToAdd = (this.allocationLookupRows || []).filter(r => selectedIds.includes(r.id));
+
+    const scheduleRows = rowsToAdd.map(r => ({
+      order_ref: r.order_ref, branch: r.branch, scheduled_date: r.scheduled_date,
+      location_id: locIdByName[r.activity_name], ticket_id: r.ticket_id,
+      product_name: r.product_name, qty: r.qty
+    }));
+
+    const { error: insertError } = await supabaseClient.from('schedule_stock').insert(scheduleRows);
+    if (insertError) { alert("❌ 加入排程補貨失敗:" + insertError.message); return; }
+
+    const { error: updateError } = await supabaseClient.from('allocation_records')
+      .update({ added_to_schedule_at: new Date().toISOString() }).in('id', selectedIds);
+    if (updateError) console.error(updateError); // 排程已經加進去了,這裡失敗只是狀態標記沒更新,不擋主要流程
+
+    showToast(`<i class="fa-solid fa-circle-check"></i> 已加入 ${scheduleRows.length} 筆到排程補貨`);
+    this.lookupAllocationOrder();
   }
 
 };

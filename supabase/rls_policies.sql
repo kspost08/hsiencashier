@@ -44,6 +44,7 @@ alter table stock_logs enable row level security;
 alter table schedule_stock enable row level security;
 alter table settings enable row level security;
 alter table master_products enable row level security;
+alter table allocation_records enable row level security;
 
 -- ============================================================
 -- profiles:只能看自己那筆,或 ADMIN 看全部。
@@ -144,6 +145,15 @@ create policy "stock_logs_insert_authenticated"
 
 create policy "schedule_stock_admin_only"
   on schedule_stock for all
+  using (current_profile_role() = 'ADMIN')
+  with check (current_profile_role() = 'ADMIN');
+
+-- ============================================================
+-- allocation_records:配票紀錄 Excel 匯入暫存區,只有 ADMIN 可讀可寫。
+-- ============================================================
+
+create policy "allocation_records_admin_only"
+  on allocation_records for all
   using (current_profile_role() = 'ADMIN')
   with check (current_profile_role() = 'ADMIN');
 

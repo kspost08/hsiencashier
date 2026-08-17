@@ -92,6 +92,24 @@ create table if not exists master_products (
   total numeric
 );
 
+-- 配票紀錄 Excel 匯入的原始資料(對應高雄郵局內部匯出格式),
+-- 只是暫存區,實際要排程補貨的品項還是要「勾選加入」才會寫進 schedule_stock。
+create table if not exists allocation_records (
+  id bigint generated always as identity primary key,
+  order_ref text not null,           -- 配票單號(一單可以有多列品項)
+  scheduled_date date not null,      -- 配票日期(Excel 序號換算)
+  activity_name text,                -- 活動名稱,用來對照 locations.name
+  branch text,                       -- 配票支局(純記錄用)
+  ticket_id text not null,           -- 類別+票品+票號 組成,對應 products.id
+  product_name text,                 -- 中文說明
+  qty numeric not null,
+  unit_price numeric,
+  total_amount numeric,
+  added_to_schedule_at timestamptz,  -- 已勾選加入 schedule_stock 就寫入,避免重複加入
+  created_at timestamptz default now(),
+  unique (order_ref, ticket_id)
+);
+
 -- 索引:records 常用查詢欄位
 create index if not exists idx_records_branch on records(branch);
 create index if not exists idx_records_location on records(location_id);
