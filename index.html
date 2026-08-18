@@ -1464,6 +1464,7 @@ const AdminSystem = {
           const item = String(r[2] || '').trim();
           const ticketNo = String(r[3] || '').trim();
           const name = String(r[7] || '').trim();
+          const issueDate = String(r[8] || '').trim(); // I欄,民國年字串格式(例如 "114/08/15"),isReduction() 要用
           if (!category || !item || !ticketNo || !name) { malformedRows++; continue; }
 
           const ticketId = category + item + ticketNo;
@@ -1487,8 +1488,10 @@ const AdminSystem = {
           }
           const total = price + stamp + fee;
 
-          if (rowsById[ticketId]) { batchDuplicates++; continue; }
-          rowsById[ticketId] = { ticket_id: ticketId, name, price, stamp, fee, total };
+          // 同一批次裡如果同個票號出現多次,後面的蓋掉前面的(跟「單號重複就覆蓋更新」同一套邏輯,
+          // 不是只有對資料庫已存在的資料才覆蓋,批次內部也一樣採最後一筆為準)。
+          if (rowsById[ticketId]) batchDuplicates++;
+          rowsById[ticketId] = { ticket_id: ticketId, name, price, stamp, fee, total, issue_date: issueDate || null };
         }
       } catch (e) {
         console.error(e);
@@ -1500,7 +1503,8 @@ const AdminSystem = {
 
     const parsedRows = Object.values(rowsById);
 
-    // 先查資料庫裡已經有哪些票號,才能算出「這次真的會新增幾筆」,而不是事後用 upsert 回傳資料猜。
+    // 先查資料庫裡已經有哪些票號,純粹是為了結果訊息能報「新增幾筆、覆蓋更新幾筆」,
+    // 不影響實際寫入行為——票號重複一律覆蓋更新,不再略過。
     // PostgREST 單次 select 預設最多回 1000 筆,主檔筆數早就超過,要用 .range() 分頁撈完。
     btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 檢查現有資料...";
     const existingIds = new Set();
@@ -1520,28 +1524,28 @@ const AdminSystem = {
       if (!existingPage || existingPage.length < pageSize) break;
       rangeStart += pageSize;
     }
-    const newRows = parsedRows.filter(r => !existingIds.has(r.ticket_id));
-    const dbDuplicates = parsedRows.length - newRows.length;
+    const updatedCount = parsedRows.filter(r => existingIds.has(r.ticket_id)).length;
+    const newCount = parsedRows.length - updatedCount;
 
-    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (0/${newRows.length})...`;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (0/${parsedRows.length})...`;
     const batchSize = 500;
-    for (let i = 0; i < newRows.length; i += batchSize) {
-      const batch = newRows.slice(i, i + batchSize);
+    for (let i = 0; i < parsedRows.length; i += batchSize) {
+      const batch = parsedRows.slice(i, i + batchSize);
       const { error: upsertError } = await supabaseClient
         .from('master_products')
-        .upsert(batch, { onConflict: 'ticket_id', ignoreDuplicates: true });
+        .upsert(batch, { onConflict: 'ticket_id' }); // 預設 ignoreDuplicates:false,票號重複就覆蓋更新
       if (upsertError) {
         alert("❌ 寫入失敗:" + upsertError.message);
         btn.innerHTML = "上傳並匯入"; btn.disabled = false;
         return;
       }
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (${Math.min(i + batchSize, newRows.length)}/${newRows.length})...`;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 寫入中 (${Math.min(i + batchSize, parsedRows.length)}/${parsedRows.length})...`;
     }
 
     btn.innerHTML = "上傳並匯入"; btn.disabled = false;
     input.value = "";
-    resultEl.textContent = `處理了 ${fileCount} 個檔案,共 ${totalRows} 列;匯入 ${newRows.length} 筆新資料;` +
-      `略過 ${dbDuplicates + batchDuplicates} 筆重複票號(資料庫已有 ${dbDuplicates} 筆、上傳批次內重複 ${batchDuplicates} 筆);` +
+    resultEl.textContent = `處理了 ${fileCount} 個檔案,共 ${totalRows} 列;新增 ${newCount} 筆、覆蓋更新 ${updatedCount} 筆` +
+      (batchDuplicates > 0 ? `(上傳批次內有 ${batchDuplicates} 筆同票號重複,以最後一筆為準)` : '') + `;` +
       `${malformedRows} 列格式不符已略過。`;
   },
 
@@ -2208,20 +2212,26 @@ const ReturnSystem = {
 
   processBarcode: function(code) {
     const input = document.getElementById('returnBarcodeInput');
-    const found = this.masterProducts.find(p => p.ticket_id === code);
+    let found = this.masterProducts.find(p => p.ticket_id === code);
+    // 票號固定是類別(2)+票品(4)+票號(2)共8碼。有些歷史條碼標籤誤把單價黏在後面
+    // (例如把 08Y03522 印成 08Y035220720),完全比對不到、且刷到的碼超過8碼時,
+    // 退而求其次只比對前8碼——不用事先知道哪些商品會遇到這個問題。
+    if (!found && code.length > 8) {
+      found = this.masterProducts.find(p => p.ticket_id === code.slice(0, 8));
+    }
     if (!found) {
       this.scanMsg(false, '找不到該商品:' + code);
       input.value = '';
       return;
     }
 
-    const idx = this.cartItems.findIndex(x => x.ticket_id === code);
+    const idx = this.cartItems.findIndex(x => x.ticket_id === found.ticket_id);
     if (idx >= 0) {
       this.cartItems[idx].qty += 1;
       this.recalcRow(this.cartItems[idx]);
     } else {
       const item = {
-        ticket_id: code, product_name: found.name,
+        ticket_id: found.ticket_id, product_name: found.name,
         unit_price: Number(found.total) || 0, fee: Number(found.fee) || 0,
         issue_date: found.issue_date, qty: 1
       };

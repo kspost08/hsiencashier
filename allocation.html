@@ -454,6 +454,13 @@
       .filter(p => p.ticket_id.toUpperCase().includes(kw) || (p.name || '').toUpperCase().includes(kw))
       .slice(0, 20);
 
+    // 票號固定8碼(類別2+票品4+票號2)。刷到/打到超過8碼又完全比對不到時,可能是舊條碼標籤
+    // 誤把單價黏在票號後面(例如 08Y035220720),退而求其次只用前8碼比對一次。
+    if (currentSearchMatches.length === 0 && kw.length > 8) {
+      const prefixMatch = masterProducts.find(p => p.ticket_id.toUpperCase() === kw.slice(0, 8));
+      if (prefixMatch) currentSearchMatches = [prefixMatch];
+    }
+
     resultsEl.innerHTML = currentSearchMatches.length === 0
       ? '<div class="result-row text-sub">查無符合的票品</div>'
       : currentSearchMatches.map((p, i) => `<div class="result-row" onclick="selectProductByIndex(${i})"><b>${p.ticket_id}</b> ${p.name || ''}</div>`).join('');
