@@ -105,8 +105,11 @@
       body > *:not(#printTemplate) { display: none !important; }
       body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
       #printTemplate { display: block !important; width: 100%; color: black; font-family: "Noto Sans TC", sans-serif; }
-      @page { size: A4 portrait; margin: 10mm; }
-      .print-page { page-break-after: always; height: 100vh; position: relative; padding-bottom: 20px; }
+      /* 邊界不靠 @page margin 撐(瀏覽器列印對話框的「邊界」選項常常會蓋過這個設定,
+         導致實際印出來的內容跑到紙張邊緣、超出可印範圍),改成把邊界直接做進 .print-page
+         自己的 padding 裡,不管列印對話框選什麼邊界選項,畫面看到的就是實際會印出來的樣子。 */
+      @page { size: A4 portrait; margin: 0; }
+      .print-page { page-break-after: always; width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 12mm 10mm 15mm 10mm; position: relative; }
       .print-page:last-child { page-break-after: auto; }
       .print-title { font-size: 18pt; font-weight: bold; text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px; padding-bottom: 5px; }
       .print-info { display: flex; justify-content: space-between; font-size: 11pt; margin-bottom: 8px; }
@@ -116,7 +119,7 @@
       .print-table th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact; }
       .print-summary { display: flex; justify-content: flex-end; font-size: 12pt; font-weight: bold; margin-top: 10px; margin-bottom: 20px; }
       .print-sign { display: flex; justify-content: space-around; margin-top: 30px; font-size: 12pt; }
-      .print-footer { position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 9pt; color: #555; }
+      .print-footer { position: absolute; bottom: 5mm; left: 0; width: 100%; text-align: center; font-size: 9pt; color: #555; }
     }
   </style>
 </head>
@@ -320,13 +323,16 @@
 
   // ==================== 初始資料載入 ====================
 
+  // 單價一律用 master_products.total(price+stamp+fee 的合計),不是 price——
+  // 有些票品(例如個人化郵票)price 本身是 0,實際金額拆在 stamp/fee 裡,
+  // 只看 price 會顯示成 $0。
   async function loadMasterProducts() {
     masterProducts = [];
     let rangeStart = 0;
     const pageSize = 1000;
     while (true) {
       const { data, error } = await supabaseClient.from('master_products')
-        .select('ticket_id,name,price,fee,issue_date').range(rangeStart, rangeStart + pageSize - 1);
+        .select('ticket_id,name,total,fee,issue_date').range(rangeStart, rangeStart + pageSize - 1);
       if (error) { console.error(error); break; }
       masterProducts.push(...(data || []));
       if (!data || data.length < pageSize) break;
@@ -484,7 +490,7 @@
 
     document.getElementById('productInfoBox').style.display = 'block';
     document.getElementById('pInfoName').textContent = p.name || '-';
-    document.getElementById('pInfoPrice').textContent = '$' + (Number(p.price) || 0).toLocaleString();
+    document.getElementById('pInfoPrice').textContent = '$' + (Number(p.total) || 0).toLocaleString();
     document.getElementById('pInfoDate').textContent = p.issue_date || '-';
     document.getElementById('pInfoFee').textContent = '$' + (Number(p.fee) || 0).toLocaleString();
     document.getElementById('pInfoReduction').style.display = isReduction(p.issue_date) ? 'inline' : 'none';
@@ -525,7 +531,7 @@
     } else {
       const item = {
         ticket_id: selectedProduct.ticket_id, product_name: selectedProduct.name,
-        unit_price: Number(selectedProduct.price) || 0, fee: Number(selectedProduct.fee) || 0,
+        unit_price: Number(selectedProduct.total) || 0, fee: Number(selectedProduct.fee) || 0,
         issue_date: selectedProduct.issue_date, qty: qty
       };
       recalcCartItem(item);
@@ -572,7 +578,7 @@
             <td style="text-align:right;">$${it.unit_price.toLocaleString()}</td>
             <td style="text-align:center;">
               <button class="admin-btn admin-btn-outline admin-btn-sm" onclick="updateCartQty(${i},-1)">-</button>
-              <input type="number" value="${it.qty}" style="width:52px; display:inline-block; text-align:center; margin:0 4px; padding:2px;" onchange="setCartQty(${i}, this.value)">
+              <input type="number" value="${it.qty}" style="width:68px; display:inline-block; text-align:center; margin:0 4px; padding:2px;" onchange="setCartQty(${i}, this.value)">
               <button class="admin-btn admin-btn-outline admin-btn-sm" onclick="updateCartQty(${i},1)">+</button>
             </td>
             <td class="text-primary text-bold" style="text-align:right;">$${it.total_price.toLocaleString()}</td>
