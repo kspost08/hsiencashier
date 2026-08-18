@@ -882,6 +882,7 @@
     myUser = { role: "GUEST", account: "", branchName: "", location: "", locationId: null, locationList: [] };
     cart = [];
     renderCart();
+    ReturnSystem.reset();
 
     try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
 
@@ -2130,7 +2131,8 @@ const AdminSystem = {
 };
 
 // ==================== 歸票清點(現場清點退回票品,取代 legacy「弦弦歸票計算機」) ====================
-// 純紀錄/日誌,不連動 product_stock 庫存(照抄 legacy saveReturn() 的邏輯)。
+// 寫入 return_records 當日誌/對帳用,並在 save_return_order RPC 內把數量加回原配票單
+// 指定活動地點的 product_stock(歸還=庫存+1,不分天/分人拆算)。
 // STAFF 只能操作自己支局的配票單(RLS + save_return_order RPC 雙重把關),ADMIN 看全部支局。
 const ReturnSystem = {
   masterProducts: [],
@@ -2138,6 +2140,21 @@ const ReturnSystem = {
   allocOrders: [],
   lockedOrder: null,
   cartItems: [],
+
+  // 登出時呼叫:清掉上一個帳號留下的選單/鎖定單/待歸還清單狀態,避免切換帳號後
+  // 畫面殘留前一個支局的配票單資訊(選單本身重新登入會 reload,但這幾個是模組內部狀態)。
+  reset: function() {
+    this.lockedOrder = null;
+    this.cartItems = [];
+    this.allocOrders = [];
+    const orderSel = document.getElementById('returnOrderSelect');
+    if (orderSel) orderSel.innerHTML = '<option value="">- 選擇要歸還的配票單 -</option>';
+    const branchSel = document.getElementById('returnBranchFilter');
+    if (branchSel) { branchSel.style.display = 'none'; branchSel.value = ''; }
+    const lockedInfo = document.getElementById('returnLockedInfo');
+    if (lockedInfo) lockedInfo.style.display = 'none';
+    this.renderCart();
+  },
 
   init: async function() {
     if (!this.masterLoaded) {
@@ -2351,7 +2368,8 @@ const ReturnSystem = {
       return;
     }
 
-    alert(`✅ 歸票成功!\n系統已產生歸票單號:${data.return_order_id}`);
+    const stockNote = data.stock_updated ? '' : '\n⚠️ 找不到對應的活動地點庫存,這批票品的庫存沒有自動加回,請手動確認。';
+    alert(`✅ 歸票成功!\n系統已產生歸票單號:${data.return_order_id}${stockNote}`);
 
     this.cartItems = [];
     this.renderCart();

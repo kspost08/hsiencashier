@@ -1,10 +1,11 @@
 -- 歸票 RPC,取代原本 Apps Script 版「弦弦歸票計算機」的 saveReturn()。
--- legacy 是現場清點退回票品時,把整批品項寫入 Return_Master 分頁(單純紀錄/日誌,
--- 不會反向增加庫存,也不比對原配票單實際配了哪些品項——掃描對象是全域商品字典)。
+-- legacy 是現場清點退回票品時,把整批品項寫入 Return_Master 分頁(單純紀錄/日誌)。
 --
--- 這支 function 完全不碰 product_stock,不需要 FOR UPDATE 鎖;主要責任是
--- 「查配票單歸屬支局 → 用 profiles 表驗證權限 → 整批 insert」,plpgsql function
--- 本身就是一個 transaction,足以保證 all-or-nothing。
+-- 這支 function 除了寫 return_records 當日誌/對帳用,還會把歸還數量加回原配票單
+-- 指定的活動地點(activity_name 對應 locations.name)的 product_stock——歸還=庫存+1,
+-- 不分天/分人拆算,單純把票品還給原本的攤位庫存。找不到對應地點(activity_name 沒有
+-- 建過 locations,或票號還沒在「商品維護」建立過)就跳過庫存更新,但 return_records
+-- 照樣寫入,不擋歸票流程(回傳 stock_updated:false 讓前端知會使用者)。
 --
 -- account/branch/role 不接受前端傳入,一律用 auth.uid() 查 profiles 取得,
 -- 避免前端偽造權限(同 save_order / refund_order 的原則)。
@@ -25,6 +26,8 @@ declare
   v_alloc_activity text;
   v_alloc_date date;
   v_return_id text;
+  v_location_id int;
+  item jsonb;
 begin
   -- 0) 身分一律從 auth.uid() 查 profiles
   select role, branch, account into v_role, v_branch, v_account from profiles where id = auth.uid();
@@ -64,7 +67,33 @@ begin
     v_account
   from jsonb_array_elements(p_items) as item;
 
-  return jsonb_build_object('status', 'OK', 'return_order_id', v_return_id);
+  -- 4) 把歸還數量加回原活動地點的庫存(找不到對應地點就跳過,不擋歸票)
+  select id into v_location_id from locations where name = v_alloc_activity;
+
+  if v_location_id is not null then
+    for item in select * from jsonb_array_elements(p_items) loop
+      if item->>'ticket_id' <> 'STAMPS00' then
+        if not exists (select 1 from products where id = item->>'ticket_id') then
+          insert into products (id, name, price, stamp, fee, total)
+          select item->>'ticket_id', coalesce(mp.name, item->>'product_name'),
+                 coalesce(mp.price, 0), coalesce(mp.stamp, 0), coalesce(mp.fee, 0), coalesce(mp.total, 0)
+          from (select 1) as dummy
+          left join master_products mp on mp.ticket_id = item->>'ticket_id'
+          on conflict (id) do nothing;
+        end if;
+
+        insert into product_stock (product_id, location_id, quantity)
+          values (item->>'ticket_id', v_location_id, (item->>'qty')::int)
+          on conflict (product_id, location_id)
+          do update set quantity = product_stock.quantity + excluded.quantity;
+
+        insert into stock_logs (product_id, qty, account, location_id)
+          values (item->>'ticket_id', (item->>'qty')::int, v_account, v_location_id);
+      end if;
+    end loop;
+  end if;
+
+  return jsonb_build_object('status', 'OK', 'return_order_id', v_return_id, 'stock_updated', v_location_id is not null);
 
 exception when others then
   return jsonb_build_object('status', 'ERROR', 'message', sqlerrm);
