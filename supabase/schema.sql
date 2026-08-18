@@ -145,6 +145,13 @@ create table if not exists return_records (
 create index if not exists idx_return_records_return_order on return_records(return_order_id);
 create index if not exists idx_return_records_branch on return_records(branch);
 
+-- 配票單號集中領取用的每日計數器。只有 claim_allocation_order_ref() 這支
+-- SECURITY DEFINER function 會碰這張表,前端/其他呼叫端不會直接讀寫它。
+create table if not exists order_ref_counters (
+  ref_date date primary key,
+  counter int not null default 0
+);
+
 -- 索引:records 常用查詢欄位
 create index if not exists idx_records_branch on records(branch);
 create index if not exists idx_records_location on records(location_id);

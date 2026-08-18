@@ -446,8 +446,11 @@
         <div class="admin-card">
           <div class="admin-card-header"><h3><i class="fa-solid fa-upload"></i> 匯入配票紀錄</h3></div>
           <p class="admin-note">上傳配票紀錄 Excel(高雄郵局內部匯出格式),會依「配票單號+票號」寫入暫存區;已存在的組合會跳過,不會覆蓋。匯入後在下方「從配票紀錄選擇加入排程補貨」輸入配票單號查詢即可勾選品項。</p>
-          <input type="file" id="alloc-upload-input" accept=".xlsx" class="admin-input">
-          <button class="admin-btn" id="alloc-upload-btn" onclick="AdminSystem.uploadAllocationRecords()">上傳並匯入</button>
+          <div style="display:flex; gap: var(--sp-2); align-items:center; flex-wrap:wrap;">
+            <input type="file" id="alloc-upload-input" accept=".xlsx" class="admin-input" style="flex:1; min-width:200px;">
+            <button class="admin-btn" id="alloc-upload-btn" onclick="AdminSystem.uploadAllocationRecords()">上傳並匯入</button>
+            <button class="admin-btn admin-btn-outline" id="alloc-template-btn" onclick="AdminSystem.downloadAllocationTemplate()"><i class="fa-solid fa-download"></i> 下載匯入範本</button>
+          </div>
           <div id="alloc-upload-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
         </div>
 
@@ -464,10 +467,10 @@
 
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-calendar-days"></i> 手動新增單筆配票項目<span class="info-tip" tabindex="0" data-tip="同一個配票單號可以連續新增多個品項——送出後配票單號/支局/配票日期/活動地點不會清空,方便連續輸入同一張配票單的所有品項。適合沒有正式配票紀錄匯出檔的臨時補貨。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-calendar-days"></i> 手動新增單筆配票項目<span class="info-tip" tabindex="0" data-tip="配票單號改成自動集中領取,加入第一筆項目時才會領號,不用自己打。先把項目一筆一筆加進下方清單,確認沒問題再按「確認送出全部項目」一次寫入,送出前都可以刪除清單裡的項目重來。適合沒有正式配票紀錄匯出檔的臨時補貨。">ⓘ</span></h3>
           </div>
           <div class="admin-form-row">
-            <div class="admin-form-group"><label>配票單號 <span class="text-danger">*</span></label><input type="text" id="sched-order-ref" class="admin-input" placeholder="例: PC20260901-01"></div>
+            <div class="admin-form-group"><label>配票單號</label><div id="sched-order-ref-display" class="admin-input" style="background:#f5f5f5; color:#78909c; display:flex; align-items:center;">尚未領取(加入第一筆項目時自動領取)</div></div>
             <div class="admin-form-group"><label>支局</label><select id="sched-branch" class="admin-select"><option value="">- 支局(選填) -</option></select></div>
             <div class="admin-form-group"><label>配票日期 <span class="text-danger">*</span></label><input type="date" id="sched-date" class="admin-input"></div>
           </div>
@@ -485,8 +488,19 @@
             <div class="admin-form-group" style="flex:2"><label>票品名稱</label><input type="text" id="sched-name" class="admin-input" placeholder="輸入票號後按「帶入」自動帶出,也可自行輸入/修改"></div>
             <div class="admin-form-group"><label>數量 <span class="text-danger">*</span></label><input type="number" id="sched-qty" class="admin-input" min="1" placeholder="10"></div>
           </div>
-          <button class="admin-btn" id="sched-add-btn" onclick="AdminSystem.addScheduleItem()"><i class="fa-solid fa-plus"></i> 新增這筆項目</button>
+          <button class="admin-btn" id="sched-add-btn" onclick="AdminSystem.addManualAllocItem()"><i class="fa-solid fa-plus"></i> 加入清單</button>
           <div id="sched-add-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
+
+          <div id="sched-manual-list-area" style="display:none; margin-top: var(--sp-3);">
+            <table class="admin-table">
+              <thead><tr><th>#</th><th>票號</th><th>品名</th><th class="text-center">數量</th><th>刪除</th></tr></thead>
+              <tbody id="sched-manual-list-body"></tbody>
+            </table>
+            <div style="display:flex; gap: var(--sp-2); margin-top: var(--sp-2);">
+              <button class="admin-btn" onclick="AdminSystem.confirmManualAllocBatch()"><i class="fa-solid fa-check"></i> 確認送出全部項目</button>
+              <button class="admin-btn admin-btn-outline" onclick="AdminSystem.clearManualAllocList()">清空重新開始</button>
+            </div>
+          </div>
         </div>
 
         <div class="admin-card">
@@ -1937,8 +1951,13 @@ const AdminSystem = {
     }
   },
 
-  addScheduleItem: async function() {
-    const orderRef = document.getElementById('sched-order-ref').value.trim();
+  // 手動新增單筆配票項目:配票單號改成集中領取(claim_allocation_order_ref RPC),
+  // 加入清單先留在本地陣列(manualAllocItems),不馬上寫資料庫,確認送出才一次批次
+  // insert 進 schedule_stock。manualAllocOrderRef 在整批確認/清空前都鎖定同一個單號。
+  manualAllocOrderRef: null,
+  manualAllocItems: [],
+
+  addManualAllocItem: async function() {
     const branch = document.getElementById('sched-branch').value.trim();
     const date = document.getElementById('sched-date').value;
     const locationId = parseInt(document.getElementById('sched-location').value) || null;
@@ -1946,7 +1965,6 @@ const AdminSystem = {
     const name = document.getElementById('sched-name').value.trim();
     const qty = parseInt(document.getElementById('sched-qty').value);
 
-    if (!orderRef) { alert("⚠️ 配票單號不可為空!"); return; }
     if (!date) { alert("⚠️ 配票日期不可為空!"); return; }
     if (!locationId) { alert("⚠️ 請選擇活動地點!"); return; }
     if (!ticketId) { alert("⚠️ 票號不可為空!"); return; }
@@ -1954,25 +1972,83 @@ const AdminSystem = {
     if (!qty || qty <= 0) { alert("⚠️ 數量必須大於 0!"); return; }
 
     const btn = document.getElementById('sched-add-btn');
-    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 新增中..."; btn.disabled = true;
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 處理中..."; btn.disabled = true;
 
-    const { error } = await supabaseClient.from('schedule_stock').insert({
-      order_ref: orderRef, branch: branch || null, scheduled_date: date,
-      location_id: locationId, ticket_id: ticketId, product_name: name, qty: qty
-    });
-
-    btn.innerHTML = "<i class='fa-solid fa-plus'></i> 新增這筆項目"; btn.disabled = false;
-
-    if (error) {
-      alert("❌ 新增失敗:" + error.message);
-      return;
+    if (!this.manualAllocOrderRef) {
+      const { data: orderRef, error } = await supabaseClient.rpc('claim_allocation_order_ref');
+      if (error) {
+        btn.innerHTML = "<i class='fa-solid fa-plus'></i> 加入清單"; btn.disabled = false;
+        alert("❌ 領取配票單號失敗:" + error.message);
+        return;
+      }
+      this.manualAllocOrderRef = orderRef;
+      document.getElementById('sched-order-ref-display').textContent = orderRef;
+      document.getElementById('sched-order-ref-display').style.color = '';
     }
 
-    // 配票單號/支局/配票日期/活動地點保留,方便連續輸入同一張配票單的下一個品項
+    this.manualAllocItems.push({
+      branch: branch || null, scheduled_date: date, location_id: locationId,
+      ticket_id: ticketId, product_name: name, qty: qty
+    });
+    this.renderManualAllocList();
+
+    btn.innerHTML = "<i class='fa-solid fa-plus'></i> 加入清單"; btn.disabled = false;
+
+    // 支局/配票日期/活動地點保留,方便連續輸入同一張配票單的下一個品項
     document.getElementById('sched-ticket-id').value = "";
     document.getElementById('sched-name').value = "";
     document.getElementById('sched-qty').value = "";
-    document.getElementById('sched-add-result').innerHTML = `<i class="fa-solid fa-circle-check"></i> 已新增「${ticketId} ${name}」x${qty} 到配票單 ${orderRef}`;
+    document.getElementById('sched-add-result').innerHTML = `<i class="fa-solid fa-circle-check"></i> 已加入清單:「${ticketId} ${name}」x${qty}`;
+    document.getElementById('sched-ticket-id').focus();
+  },
+
+  renderManualAllocList: function() {
+    const area = document.getElementById('sched-manual-list-area');
+    if (this.manualAllocItems.length === 0) { area.style.display = 'none'; return; }
+    area.style.display = 'block';
+    document.getElementById('sched-manual-list-body').innerHTML = this.manualAllocItems.map((it, i) => `
+      <tr>
+        <td>${i + 1}</td><td>${it.ticket_id}</td><td>${it.product_name}</td>
+        <td class="text-center">${it.qty}</td>
+        <td><span class="text-danger" style="cursor:pointer;" onclick="AdminSystem.removeManualAllocItem(${i})"><i class="fa-solid fa-xmark"></i></span></td>
+      </tr>`).join('');
+  },
+
+  removeManualAllocItem: function(index) {
+    this.manualAllocItems.splice(index, 1);
+    this.renderManualAllocList();
+  },
+
+  clearManualAllocList: function() {
+    this.manualAllocOrderRef = null;
+    this.manualAllocItems = [];
+    document.getElementById('sched-order-ref-display').textContent = "尚未領取(加入第一筆項目時自動領取)";
+    document.getElementById('sched-order-ref-display').style.color = '#78909c';
+    document.getElementById('sched-add-result').textContent = "";
+    this.renderManualAllocList();
+  },
+
+  confirmManualAllocBatch: async function() {
+    if (this.manualAllocItems.length === 0) return;
+    const orderRef = this.manualAllocOrderRef;
+
+    const rows = this.manualAllocItems.map(it => ({
+      order_ref: orderRef, branch: it.branch, scheduled_date: it.scheduled_date,
+      location_id: it.location_id, ticket_id: it.ticket_id, product_name: it.product_name, qty: it.qty
+    }));
+
+    const { error } = await supabaseClient.from('schedule_stock').insert(rows);
+    if (error) {
+      alert("❌ 送出失敗:" + error.message + "\n清單內容保留,可修正後重試。");
+      return;
+    }
+
+    document.getElementById('sched-add-result').innerHTML = `<i class="fa-solid fa-circle-check"></i> 已送出配票單 ${orderRef},共 ${rows.length} 筆項目`;
+    this.manualAllocOrderRef = null;
+    this.manualAllocItems = [];
+    document.getElementById('sched-order-ref-display').textContent = "尚未領取(加入第一筆項目時自動領取)";
+    document.getElementById('sched-order-ref-display').style.color = '#78909c';
+    this.renderManualAllocList();
   },
 
   lookupScheduleOrder: async function() {
@@ -2014,6 +2090,26 @@ const AdminSystem = {
 
   // ---- 配票紀錄 Excel 匯入(allocation_records 表)----
   allocationLookupRows: [],
+
+  downloadAllocationTemplate: async function() {
+    const btn = document.getElementById('alloc-template-btn');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 領取單號中..."; btn.disabled = true;
+
+    const { data: orderRef, error } = await supabaseClient.rpc('claim_allocation_order_ref');
+    btn.innerHTML = "<i class='fa-solid fa-download'></i> 下載匯入範本"; btn.disabled = false;
+    if (error) { alert("❌ 領取配票單號失敗:" + error.message); return; }
+
+    // 欄位順序完全對應 uploadAllocationRecords() 實際解析的順序(下面 r[0]~r[10]),不是憑空設計。
+    const wsData = [
+      ["配票單號", "配票日期", "活動名稱", "支局", "類別", "票品", "票號", "中文說明", "單價", "數量", "總金額"]
+    ];
+    for (let i = 0; i < 30; i++) wsData.push([orderRef, "", "", "", "", "", "", "", "", "", ""]);
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "配票匯入範本");
+    XLSX.writeFile(wb, `配票匯入範本_${orderRef}.xlsx`);
+  },
 
   uploadAllocationRecords: async function() {
     const input = document.getElementById('alloc-upload-input');

@@ -47,6 +47,9 @@ alter table settings enable row level security;
 alter table master_products enable row level security;
 alter table allocation_records enable row level security;
 alter table return_records enable row level security;
+alter table order_ref_counters enable row level security;
+-- order_ref_counters 刻意不開任何 policy——這張表只給 claim_allocation_order_ref()
+-- (security definer)內部用,不管 anon 還是 authenticated 都不需要、也不應該直接查詢或寫入它。
 
 -- ============================================================
 -- profiles:只能看自己那筆,或 ADMIN 看全部。
