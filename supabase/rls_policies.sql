@@ -169,27 +169,32 @@ create policy "schedule_stock_admin_only"
   with check (current_profile_role() = 'ADMIN');
 
 -- ============================================================
--- allocation_records:配票紀錄 Excel 匯入暫存區,寫入(匯入/勾選加入排程)
--- 只有 ADMIN,但讀取放寬給 STAFF 依支局查詢自己的配票單(歸票計算機
--- 選單要用),ADMIN 一樣能看全部。
+-- allocation_records:配票紀錄 Excel 匯入暫存區,寫入(匯入/勾選加入排程/
+-- allocation.html 手動配票)只有 ADMIN 跟 ALLOC(配票單位專用角色),
+-- 讀取放寬給 STAFF 依支局查詢自己的配票單(歸票計算機選單要用),
+-- ADMIN/ALLOC 都能看全部支局——ALLOC 不隸屬任何支局,一定要看全部
+-- 才能用「載入最近訂單」功能。
 -- ============================================================
 
-create policy "allocation_records_select_own_branch_or_admin"
+create policy "allocation_records_select_own_branch_or_admin_or_alloc"
   on allocation_records for select
-  using (branch = current_profile_branch() or current_profile_role() = 'ADMIN');
+  using (branch = current_profile_branch() or current_profile_role() in ('ADMIN', 'ALLOC'));
 
-create policy "allocation_records_insert_admin"
+create policy "allocation_records_insert_admin_or_alloc"
   on allocation_records for insert
-  with check (current_profile_role() = 'ADMIN');
+  with check (current_profile_role() in ('ADMIN', 'ALLOC'));
 
 create policy "allocation_records_update_admin"
   on allocation_records for update
   using (current_profile_role() = 'ADMIN')
   with check (current_profile_role() = 'ADMIN');
 
-create policy "allocation_records_delete_admin"
+-- ALLOC 可以刪除配票紀錄(allocation.html「刪除本單」按鈕要用)——沒有 created_by
+-- 這種欄位可以區分「自己建立的」,權限範圍跟 select/insert 一樣是看全部、動全部,
+-- 不是只能刪自己那筆。
+create policy "allocation_records_delete_admin_or_alloc"
   on allocation_records for delete
-  using (current_profile_role() = 'ADMIN');
+  using (current_profile_role() in ('ADMIN', 'ALLOC'));
 
 -- ============================================================
 -- return_records:歸票紀錄。STAFF 只能看自己支局的,ADMIN 看全部。

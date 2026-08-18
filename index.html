@@ -602,7 +602,7 @@
             <div class="admin-form-group"><label>員工編號</label><input type="text" id="admin-user-acc" class="admin-input"></div>
             <div class="admin-form-group" id="admin-user-pwd-group"><label>密碼(僅新增帳號時需要)</label><input type="text" id="admin-user-pwd" class="admin-input"></div>
             <div class="admin-form-group"><label>所屬支局</label><select id="admin-user-branch" class="admin-select"><option value="">- 請選擇支局 -</option></select></div>
-            <div class="admin-form-group"><label>權限</label><select id="admin-user-role" class="admin-select"><option value="STAFF">STAFF</option><option value="ADMIN">ADMIN</option></select></div>
+            <div class="admin-form-group"><label>權限</label><select id="admin-user-role" class="admin-select"><option value="STAFF">STAFF</option><option value="ADMIN">ADMIN</option><option value="ALLOC">ALLOC(配票單位)</option></select></div>
           </div>
           <div class="admin-modal-footer">
             <button class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.closeUserModal()">取消</button>
@@ -778,6 +778,15 @@
       return;
     }
 
+    // ALLOC(配票單位)帳號不進收銀機主畫面,請改用 allocation.html。
+    if (profile.role === 'ALLOC') {
+      localStorage.removeItem('pos_session'); localStorage.removeItem('pos_cart');
+      try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+      showLoginScreen();
+      document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 此帳號請改用配票專用頁面(allocation.html)登入";
+      return;
+    }
+
     const { data: locations } = await supabaseClient.from('locations').select('id,name').order('sort_order');
 
     const cachedRaw = localStorage.getItem('pos_session');
@@ -844,6 +853,14 @@
         try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
         btn.innerHTML = "登入系統"; btn.disabled = false;
         document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常,請聯絡管理員";
+        return;
+      }
+
+      // ALLOC(配票單位)帳號不進收銀機主畫面,請改用 allocation.html。
+      if (profile.role === 'ALLOC') {
+        try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+        btn.innerHTML = "登入系統"; btn.disabled = false;
+        document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 此帳號請改用配票專用頁面(allocation.html)登入";
         return;
       }
 

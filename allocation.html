@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>弦弦配票作業</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* 跟 index.html 共用同一套配色識別(這個專案沒有共用 CSS 檔案的機制,各頁各自複製一份設計 token)。 */
+    :root {
+        --primary: #546e7a; --primary-hover: #455a64; --danger: #d35f5f; --danger-hover: #c0483f; --success: #66bb6a;
+        --bg: #f4f1ea; --card-bg: #ffffff; --text-main: #37474f; --text-sub: #78909c;
+        --admin-color: #9575cd; --admin-color-hover: #7e57c2; --card-shadow: 0 4px 20px rgba(92, 76, 56, 0.08);
+
+        --fs-xs: 11px; --fs-sm: 12px; --fs-base: 14px; --fs-md: 15px;
+        --fs-lg: 16px; --fs-xl: 18px; --fs-2xl: 22px; --fs-3xl: 28px;
+
+        --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+        --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: "Noto Sans TC", sans-serif; margin: 0; background: var(--bg); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: var(--fs-base); line-height: 1.5; }
+    h1, h2, h3, h4 { margin: 0; font-weight: 700; }
+
+    .text-sub { color: var(--text-sub) !important; }
+    .text-danger { color: var(--danger) !important; }
+    .text-primary { color: var(--primary) !important; }
+    .text-bold { font-weight: 700 !important; }
+    .badge-bundle { background:#e3f2fd; color:#1976d2; padding: 2px var(--sp-2); border-radius: 4px; font-size: var(--fs-xs); }
+
+    .info-tip {
+      display:inline-flex; align-items:center; justify-content:center;
+      color:#90a4ae; font-size:15px;
+      cursor:help; margin-left:4px; position:relative; vertical-align:middle;
+    }
+    .info-tip:hover::after, .info-tip:focus::after {
+      content: attr(data-tip);
+      position:absolute; left:50%; bottom:135%; transform:translateX(-50%);
+      background:#37474f; color:#fff; padding:8px 10px; border-radius:6px;
+      font-size:12px; font-weight:400; line-height:1.5; white-space:pre-line;
+      width:220px; z-index:50; box-shadow:0 2px 8px rgba(0,0,0,0.25); text-align:left;
+    }
+    .info-tip:hover::before, .info-tip:focus::before {
+      content:''; position:absolute; left:50%; bottom:100%; transform:translateX(-50%);
+      border:5px solid transparent; border-top-color:#37474f; z-index:50;
+    }
+
+    input[type="text"], input[type="password"], input[type="date"], input[type="number"], select { width: 100%; padding: var(--sp-3); border: 2px solid #eceff1; border-radius: var(--radius-md); margin-bottom: var(--sp-2); background: #fafafa; font-size: var(--fs-base); font-family: inherit; }
+
+    #login-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+    .login-box { background:var(--card-bg); padding:var(--sp-6); border-radius:var(--radius-lg); box-shadow:var(--card-shadow); width:320px; }
+    .login-title { color:var(--text-main); margin:0 0 var(--sp-5) 0; letter-spacing: 1.5px; font-size: var(--fs-3xl); text-align: center; }
+    .login-footnote { margin-top: var(--sp-6); text-align: center; line-height: 1.8; }
+    .login-footnote p { margin: 0; }
+    .login-footnote .title { font-size: var(--fs-sm); color: var(--text-main); font-weight: 700; letter-spacing: 1px; }
+    .login-footnote .sub { font-size: var(--fs-sm); color: var(--text-sub); }
+    .remember-row { display:flex; align-items:center; margin-bottom: var(--sp-4); }
+    .remember-row input { width:auto; margin:0 var(--sp-2) 0 0; transform: scale(1.2); }
+    .remember-row label { font-size: var(--fs-base); color: var(--text-sub); cursor:pointer; }
+    #login-msg { color: var(--danger); font-size: var(--fs-sm); margin-top: var(--sp-2); text-align: center; }
+
+    .btn-save { width: 100%; padding: var(--sp-3); background: var(--primary); color: white; border: none; border-radius: var(--radius-md); font-size: var(--fs-lg); cursor: pointer; }
+    .btn-save:hover { background: var(--primary-hover); }
+    .btn-save:disabled { opacity: 0.6; cursor: default; }
+    .btn-logout { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--fs-sm); }
+    .btn-logout:hover { background: var(--danger); }
+
+    .card { background: var(--card-bg); padding: var(--sp-3); border-radius: var(--radius-lg); box-shadow: var(--card-shadow); border: 1px solid white; }
+
+    .admin-input, .admin-select { width: 100%; padding: var(--sp-3); border: 1px solid #cfd8dc; border-radius: var(--radius-sm); font-size: var(--fs-base); background: #fff; font-family: inherit; }
+    .admin-btn { background: var(--admin-color); color: white; border: none; padding: var(--sp-3) var(--sp-5); border-radius: var(--radius-sm); font-size: var(--fs-base); cursor: pointer; }
+    .admin-btn:hover { background: var(--admin-color-hover); }
+    .admin-btn:disabled { opacity: 0.6; cursor: default; }
+    .admin-btn-sm { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); border-radius: 4px; }
+    .admin-btn-outline { background: transparent; color: var(--primary); border: 1px solid #cfd8dc; }
+    .admin-btn-outline:hover { background: #eceff1; color: #263238; border-color: #90a4ae; }
+
+    .admin-table { width: 100%; border-collapse: collapse; font-size: var(--fs-base); }
+    .admin-table th { background: #eceff1; color: #455a64; padding: var(--sp-1) var(--sp-3); text-align: left; border-bottom: 2px solid #cfd8dc; position: sticky; top: 0; z-index: 2; }
+    .admin-table td { padding: 4px var(--sp-3); border-bottom: 1px solid #eee; color: #333; }
+
+    .stat-item { display: flex; justify-content: space-between; padding: var(--sp-2) 0; border-bottom: 1px dashed #cfd8dc; font-size: var(--fs-md); }
+
+    .main-layout { display: flex; gap: var(--sp-3); flex: 1; overflow: hidden; padding: var(--sp-3); }
+    .left-section { flex: 1; background: var(--card-bg); border-radius: var(--radius-lg); box-shadow: var(--card-shadow); padding: var(--sp-4); overflow-y: auto; border: 1px solid white; }
+    .right-section { flex: 1.4; display: flex; flex-direction: column; gap: var(--sp-3); overflow: hidden; }
+
+    .topbar { background: var(--primary); color: white; padding: var(--sp-3) var(--sp-5); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+
+    #searchResults { max-height: 240px; overflow-y: auto; border: 1px solid #eceff1; border-radius: var(--radius-md); display: none; margin-bottom: var(--sp-3); }
+    #searchResults .result-row { padding: var(--sp-2) var(--sp-3); cursor: pointer; border-bottom: 1px solid #eee; }
+    #searchResults .result-row:hover { background: #f5f5f5; }
+
+    #printTemplate { display: none; }
+    @media print {
+      body > *:not(#printTemplate) { display: none !important; }
+      body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
+      #printTemplate { display: block !important; width: 100%; color: black; font-family: "Noto Sans TC", sans-serif; }
+      @page { size: A4 portrait; margin: 10mm; }
+      .print-page { page-break-after: always; height: 100vh; position: relative; padding-bottom: 20px; }
+      .print-page:last-child { page-break-after: auto; }
+      .print-title { font-size: 18pt; font-weight: bold; text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px; padding-bottom: 5px; }
+      .print-info { display: flex; justify-content: space-between; font-size: 11pt; margin-bottom: 8px; }
+      .print-table { width: 100%; border-collapse: collapse; text-align: center; margin-bottom: 10px; font-size: 9pt; table-layout: fixed; border: 1px solid #000 !important; }
+      .print-table th, .print-table td { border: 1px solid #000 !important; padding: 2px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .print-table td.print-cell-name { white-space: normal; }
+      .print-table th { background-color: #e9ecef !important; -webkit-print-color-adjust: exact; }
+      .print-summary { display: flex; justify-content: flex-end; font-size: 12pt; font-weight: bold; margin-top: 10px; margin-bottom: 20px; }
+      .print-sign { display: flex; justify-content: space-around; margin-top: 30px; font-size: 12pt; }
+      .print-footer { position: absolute; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 9pt; color: #555; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="login-overlay">
+  <h2 class="login-title">弦弦配票作業</h2>
+  <div class="login-box">
+    <input type="text" id="login-acc" placeholder="請輸入員工編號">
+    <input type="password" id="login-pwd" placeholder="密碼">
+    <div class="remember-row">
+      <input type="checkbox" id="remember-me">
+      <label for="remember-me">記住帳號密碼</label>
+    </div>
+    <button class="btn-save" id="login-btn" onclick="handleLogin()">登入系統</button>
+    <div id="login-msg"></div>
+  </div>
+  <div class="login-footnote">
+    <p class="title"><i class="fa-solid fa-screwdriver-wrench"></i> 配票專用頁面</p>
+    <p class="sub">僅限 ADMIN / ALLOC 帳號登入</p>
+  </div>
+</div>
+
+<div id="app" style="display:none; flex-direction:column; height:100vh; overflow:hidden;">
+  <div class="topbar">
+    <h3><i class="fa-solid fa-ticket"></i> 弦弦配票作業</h3>
+    <div style="display:flex; align-items:center; gap: var(--sp-3);">
+      <span id="display-account" style="font-size: var(--fs-sm);"></span>
+      <button class="btn-logout" onclick="handleLogout()">登出 <i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <div class="left-section">
+      <h3 style="font-size: var(--fs-md); margin-bottom: var(--sp-3);"><i class="fa-solid fa-magnifying-glass"></i> 檢索與配發商品</h3>
+      <input type="text" id="searchInput" placeholder="輸入票號或品名搜尋..." oninput="handleSearchInput()" onkeydown="handleSearchKeydown(event)" autocomplete="off">
+      <div id="searchResults"></div>
+
+      <div id="productInfoBox" class="card" style="display:none; margin-bottom: var(--sp-3);">
+        <div class="text-sub" style="font-size: var(--fs-sm);">中文說明</div>
+        <div id="pInfoName" class="text-bold" style="font-size: var(--fs-lg); margin-bottom: var(--sp-2);"></div>
+        <div class="stat-item"><span>單價</span><span id="pInfoPrice" class="text-bold"></span></div>
+        <div class="stat-item"><span>發行日期</span><span><span id="pInfoDate"></span> <span id="pInfoReduction" class="badge-bundle" style="display:none;">降庫達標</span></span></div>
+        <div class="stat-item"><span>AP 製作費</span><span id="pInfoFee" class="text-primary text-bold"></span></div>
+      </div>
+
+      <label class="text-sub" style="font-size: var(--fs-sm);">欲配發數量</label>
+      <input type="number" id="qtyInput" min="1" value="1" onkeydown="if(event.key==='Enter'){ event.preventDefault(); addToCart(); }">
+      <button class="admin-btn" id="addToCartBtn" onclick="addToCart()" style="width:100%;"><i class="fa-solid fa-plus"></i> 加入配票清單</button>
+    </div>
+
+    <div class="right-section">
+      <div class="card">
+        <div style="display:flex; gap: var(--sp-2); align-items:center; margin-bottom: var(--sp-2);">
+          <select id="recentOrdersSelect" class="admin-select" style="margin:0; flex:1;" onchange="loadRecentOrderIntoCart(this.value)">
+            <option value="">- 選擇最近訂單快速載入(選填) -</option>
+          </select>
+          <button class="admin-btn admin-btn-outline" id="deleteOrderBtn" onclick="deleteCurrentOrder()" style="display:none; color:var(--danger); border-color:var(--danger); white-space:nowrap;"><i class="fa-solid fa-trash"></i> 刪除本單</button>
+        </div>
+        <div class="admin-form-row" style="display:flex; gap: var(--sp-2);">
+          <div style="flex:1;"><label class="text-sub" style="font-size: var(--fs-sm);">活動地點 *</label><select id="allocEvent" class="admin-select"><option value="">- 請選擇活動地點 -</option></select></div>
+          <div style="flex:1;"><label class="text-sub" style="font-size: var(--fs-sm);">支局 *</label><select id="allocBranch" class="admin-select"><option value="">- 請選擇支局 -</option></select></div>
+          <div style="flex:1;">
+            <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 *<span class="info-tip" tabindex="0" data-tip="這是活動當天要補上的配票數量,不是今天填單的日期。排程補貨會依這個日期在活動當天自動套用庫存。">ⓘ</span></label>
+            <input type="date" id="allocDate">
+            <div class="text-sub" style="font-size: var(--fs-xs); margin-top:-6px;">建立日期:<span id="createdDateLabel"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="display:flex; gap: var(--sp-2); flex-wrap:wrap;">
+        <div style="flex:1; min-width:120px;"><div class="text-sub" style="font-size: var(--fs-sm);">總配票枚數</div><div id="statQty" class="text-bold" style="font-size: var(--fs-xl);">0</div></div>
+        <div style="flex:1; min-width:120px;"><div class="text-sub" style="font-size: var(--fs-sm);">總配票金額</div><div id="statAmt" class="text-bold" style="font-size: var(--fs-xl);">$0</div></div>
+        <div style="flex:1; min-width:120px;"><div class="text-sub" style="font-size: var(--fs-sm);">預估降庫業績</div><div id="statRed" class="text-bold" style="font-size: var(--fs-xl);">$0</div></div>
+        <div style="flex:1; min-width:120px;"><div class="text-sub" style="font-size: var(--fs-sm);">預估製作費總額</div><div id="statFee" class="text-bold" style="font-size: var(--fs-xl);">$0</div></div>
+      </div>
+
+      <div class="card" style="flex:1; overflow-y:auto; padding:0;">
+        <table class="admin-table">
+          <thead><tr><th style="width:6%;">#</th><th style="width:16%;">票號</th><th>中文說明</th><th style="width:10%; text-align:right;">單價</th><th style="width:16%; text-align:center;">數量</th><th style="width:12%; text-align:right;">總計</th><th style="width:6%;">刪除</th></tr></thead>
+          <tbody id="cartBody"></tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; gap: var(--sp-2);">
+        <button class="admin-btn admin-btn-outline" onclick="clearCart()" style="flex:1;"><i class="fa-solid fa-broom"></i> 清空清單</button>
+        <button class="admin-btn admin-btn-outline" onclick="exportExcel()" style="flex:1;"><i class="fa-solid fa-file-excel"></i> 匯出 Excel</button>
+        <button class="admin-btn admin-btn-outline" onclick="openPrintDialog()" style="flex:1;"><i class="fa-solid fa-print"></i> 列印 A4 單據</button>
+        <button class="admin-btn" id="saveBtn" onclick="saveToDB()" style="flex:2;"><i class="fa-solid fa-cloud-arrow-up"></i> 儲存至雲端資料庫</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="printTemplate"></div>
+
+<script src="config.js"></script>
+<script>
+  let myUser = { role: "GUEST", account: "" };
+  let masterProducts = [];
+  let selectedProduct = null;
+  let currentSearchMatches = [];
+  let cartItems = [];
+  let recentOrders = [];
+  let branchesCache = null;
+
+  window.onload = async () => {
+    showLoginScreen();
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) return;
+
+    const { data: profile, error } = await supabaseClient.from('profiles').select('account,role').eq('id', session.user.id).single();
+    if (error || !profile) {
+      try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+      return;
+    }
+    if (profile.role !== 'ADMIN' && profile.role !== 'ALLOC') {
+      try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+      document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 此帳號無權限使用配票系統";
+      return;
+    }
+
+    myUser = { role: profile.role, account: profile.account };
+    await afterLogin();
+  };
+
+  function showLoginScreen() {
+    const savedAcc = localStorage.getItem('alloc_acc');
+    const savedPwd = localStorage.getItem('alloc_pwd');
+    if (savedAcc && savedPwd) {
+      document.getElementById('login-acc').value = savedAcc;
+      document.getElementById('login-pwd').value = savedPwd;
+      document.getElementById('remember-me').checked = true;
+    }
+  }
+
+  async function handleLogin() {
+    const acc = document.getElementById('login-acc').value;
+    const pwd = document.getElementById('login-pwd').value;
+    const isRem = document.getElementById('remember-me').checked;
+    if (!acc || !pwd) return;
+
+    const btn = document.getElementById('login-btn');
+    btn.innerHTML = "驗證中..."; btn.disabled = true;
+
+    const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+      email: `${acc}@hsiencashier.local`, password: pwd
+    });
+
+    if (authError) {
+      console.error(authError);
+      btn.innerHTML = "登入系統"; btn.disabled = false;
+      document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號或密碼錯誤";
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles').select('account,role').eq('id', authData.user.id).single();
+
+    btn.innerHTML = "登入系統"; btn.disabled = false;
+
+    if (profileError || !profile) {
+      console.error(profileError);
+      try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+      document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常,請聯絡管理員";
+      return;
+    }
+    if (profile.role !== 'ADMIN' && profile.role !== 'ALLOC') {
+      try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+      document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 此帳號無權限使用配票系統";
+      return;
+    }
+
+    // 用獨立的 localStorage key(不是 index.html 用的 pos_acc/pos_pwd),避免兩個頁面
+    // 共用同一個網域時互相污染記住的帳密。
+    if (isRem) { localStorage.setItem('alloc_acc', acc); localStorage.setItem('alloc_pwd', pwd); }
+    else { localStorage.removeItem('alloc_acc'); localStorage.removeItem('alloc_pwd'); }
+
+    myUser = { role: profile.role, account: profile.account };
+    await afterLogin();
+  }
+
+  async function afterLogin() {
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('display-account').textContent = `${myUser.account} (${myUser.role})`;
+    document.getElementById('allocDate').valueAsDate = new Date();
+    document.getElementById('createdDateLabel').textContent = new Date().toLocaleDateString('zh-TW');
+
+    await loadMasterProducts();
+    await populateLocationSelect();
+    await populateBranchSelect();
+    await loadRecentOrders();
+    populateRecentOrdersSelect();
+  }
+
+  async function handleLogout() {
+    try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+    location.reload();
+  }
+
+  // ==================== 初始資料載入 ====================
+
+  async function loadMasterProducts() {
+    masterProducts = [];
+    let rangeStart = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabaseClient.from('master_products')
+        .select('ticket_id,name,price,fee,issue_date').range(rangeStart, rangeStart + pageSize - 1);
+      if (error) { console.error(error); break; }
+      masterProducts.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+      rangeStart += pageSize;
+    }
+  }
+
+  async function populateLocationSelect() {
+    const { data } = await supabaseClient.from('locations').select('id,name').order('sort_order');
+    document.getElementById('allocEvent').innerHTML = '<option value="">- 請選擇活動地點 -</option>' +
+      (data || []).map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+  }
+
+  async function populateBranchSelect() {
+    if (!branchesCache) {
+      const { data } = await supabaseClient.from('branches').select('code,name').order('code');
+      branchesCache = data || [];
+    }
+    document.getElementById('allocBranch').innerHTML = '<option value="">- 請選擇支局 -</option>' +
+      branchesCache.map(b => `<option value="${b.code} ${b.name}">${b.code} ${b.name}</option>`).join('');
+  }
+
+  // 最近訂單:ADMIN/ALLOC 都看全部支局(不分支局過濾),取最近 15 張不重複配票單號,
+  // 連同每張單號底下所有品項一起帶回(方便「載入最近訂單」直接回填整張清單重新編輯)。
+  async function loadRecentOrders() {
+    const { data, error } = await supabaseClient.from('allocation_records')
+      .select('order_ref,branch,activity_name,scheduled_date,ticket_id,product_name,qty,unit_price,total_amount')
+      .order('created_at', { ascending: false }).limit(500);
+    if (error) { console.error(error); recentOrders = []; return; }
+
+    const orderMap = new Map();
+    (data || []).forEach(r => {
+      if (!orderMap.has(r.order_ref)) {
+        if (orderMap.size >= 15) return;
+        orderMap.set(r.order_ref, { order_ref: r.order_ref, branch: r.branch, activity_name: r.activity_name, scheduled_date: r.scheduled_date, items: [] });
+      }
+      orderMap.get(r.order_ref).items.push({ ticket_id: r.ticket_id, product_name: r.product_name, qty: r.qty, unit_price: r.unit_price });
+    });
+    recentOrders = Array.from(orderMap.values());
+  }
+
+  function populateRecentOrdersSelect() {
+    document.getElementById('recentOrdersSelect').innerHTML = '<option value="">- 選擇最近訂單快速載入(選填) -</option>' +
+      recentOrders.map(o => `<option value="${o.order_ref}">[${o.order_ref}] ${o.scheduled_date} ${o.branch} (${o.activity_name || ''})</option>`).join('');
+  }
+
+  function loadRecentOrderIntoCart(orderRef) {
+    if (!orderRef) {
+      document.getElementById('deleteOrderBtn').style.display = 'none';
+      return;
+    }
+    const order = recentOrders.find(o => o.order_ref === orderRef);
+    if (!order) return;
+
+    document.getElementById('allocEvent').value = order.activity_name || '';
+    document.getElementById('allocBranch').value = order.branch || '';
+    document.getElementById('allocDate').value = order.scheduled_date || '';
+
+    cartItems = order.items.map(it => {
+      const master = masterProducts.find(p => p.ticket_id === it.ticket_id);
+      const item = {
+        ticket_id: it.ticket_id, product_name: it.product_name,
+        unit_price: Number(it.unit_price) || 0, fee: master ? Number(master.fee) || 0 : 0,
+        issue_date: master ? master.issue_date : null, qty: Number(it.qty) || 0
+      };
+      recalcCartItem(item);
+      return item;
+    });
+    renderCart();
+    document.getElementById('deleteOrderBtn').style.display = 'inline-block';
+  }
+
+  // 刪除一張「已經儲存」的配票單——只有選到上方最近訂單時才會顯示這個按鈕。
+  // 沒有 created_by 這種欄位可以區分是誰建立的,ALLOC/ADMIN 都能刪任何一張(跟 select/insert 權限範圍一致)。
+  async function deleteCurrentOrder() {
+    const sel = document.getElementById('recentOrdersSelect');
+    const orderRef = sel.value;
+    if (!orderRef) return;
+    if (!confirm(`確定要刪除配票單 ${orderRef} 嗎?這個動作無法復原。`)) return;
+
+    const btn = document.getElementById('deleteOrderBtn');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 刪除中..."; btn.disabled = true;
+
+    const { error } = await supabaseClient.from('allocation_records').delete().eq('order_ref', orderRef);
+
+    btn.innerHTML = "<i class='fa-solid fa-trash'></i> 刪除本單"; btn.disabled = false;
+
+    if (error) { alert('❌ 刪除失敗:' + error.message); return; }
+
+    alert(`✅ 已刪除配票單 ${orderRef}`);
+    cartItems = [];
+    renderCart();
+    sel.value = '';
+    document.getElementById('deleteOrderBtn').style.display = 'none';
+    await loadRecentOrders();
+    populateRecentOrdersSelect();
+  }
+
+  function clearCart() {
+    if (cartItems.length === 0) return;
+    if (!confirm('確定要清空目前還沒儲存的配票清單嗎?')) return;
+    cartItems = [];
+    renderCart();
+  }
+
+  // ==================== 票品搜尋與選取 ====================
+
+  // 使用者還在輸入(還沒按 Enter 選定商品)期間,中文說明那些欄位一律清空,
+  // 不要留著上一次選過的商品資料,免得看起來像是已經選到現在打的這個票號。
+  function handleSearchInput() {
+    selectedProduct = null;
+    clearProductInfoBox();
+
+    const kw = document.getElementById('searchInput').value.trim().toUpperCase();
+    const resultsEl = document.getElementById('searchResults');
+    if (!kw) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; currentSearchMatches = []; return; }
+
+    currentSearchMatches = masterProducts
+      .filter(p => p.ticket_id.toUpperCase().includes(kw) || (p.name || '').toUpperCase().includes(kw))
+      .slice(0, 20);
+
+    resultsEl.innerHTML = currentSearchMatches.length === 0
+      ? '<div class="result-row text-sub">查無符合的票品</div>'
+      : currentSearchMatches.map((p, i) => `<div class="result-row" onclick="selectProductByIndex(${i})"><b>${p.ticket_id}</b> ${p.name || ''}</div>`).join('');
+    resultsEl.style.display = 'block';
+  }
+
+  // 票號通常打到 8 碼左右就會篩到只剩一個商品,這時按 Enter 直接選定,
+  // 不用再滑鼠點下拉清單——比照刷條碼槍的操作習慣。
+  function handleSearchKeydown(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (currentSearchMatches.length === 1) {
+      selectProduct(currentSearchMatches[0]);
+    }
+  }
+
+  function selectProductByIndex(i) {
+    selectProduct(currentSearchMatches[i]);
+  }
+
+  function clearProductInfoBox() {
+    document.getElementById('productInfoBox').style.display = 'none';
+    document.getElementById('pInfoName').textContent = '';
+    document.getElementById('pInfoPrice').textContent = '';
+    document.getElementById('pInfoDate').textContent = '';
+    document.getElementById('pInfoFee').textContent = '';
+    document.getElementById('pInfoReduction').style.display = 'none';
+  }
+
+  function selectProduct(p) {
+    selectedProduct = p;
+    document.getElementById('searchInput').value = p.ticket_id;
+    document.getElementById('searchResults').style.display = 'none';
+
+    document.getElementById('productInfoBox').style.display = 'block';
+    document.getElementById('pInfoName').textContent = p.name || '-';
+    document.getElementById('pInfoPrice').textContent = '$' + (Number(p.price) || 0).toLocaleString();
+    document.getElementById('pInfoDate').textContent = p.issue_date || '-';
+    document.getElementById('pInfoFee').textContent = '$' + (Number(p.fee) || 0).toLocaleString();
+    document.getElementById('pInfoReduction').style.display = isReduction(p.issue_date) ? 'inline' : 'none';
+
+    const qtyInput = document.getElementById('qtyInput');
+    qtyInput.value = 1;
+    qtyInput.focus();
+    qtyInput.select();
+  }
+
+  // 發行滿 2 年的票算「降庫業績」,issue_date 是民國年字串(例如 "108/05/20")。
+  function isReduction(issueDateStr) {
+    if (!issueDateStr || issueDateStr === '-') return false;
+    const parts = String(issueDateStr).split('/');
+    const issueYear = parseInt(parts[0], 10);
+    if (isNaN(issueYear)) return false;
+    const currentYear = new Date().getFullYear() - 1911;
+    return (currentYear - issueYear) >= 2;
+  }
+
+  // ==================== 配票清單 ====================
+
+  function recalcCartItem(item) {
+    item.total_price = item.unit_price * item.qty;
+    item.total_fee = item.fee * item.qty;
+    item.reduction_val = isReduction(item.issue_date) ? item.total_price : 0;
+  }
+
+  function addToCart() {
+    if (!selectedProduct) { alert('請先搜尋並選擇要配發的商品!'); return; }
+    const qty = parseInt(document.getElementById('qtyInput').value, 10);
+    if (!qty || qty <= 0) { alert('請輸入有效的配發數量!'); return; }
+
+    const existing = cartItems.find(it => it.ticket_id === selectedProduct.ticket_id);
+    if (existing) {
+      existing.qty += qty;
+      recalcCartItem(existing);
+    } else {
+      const item = {
+        ticket_id: selectedProduct.ticket_id, product_name: selectedProduct.name,
+        unit_price: Number(selectedProduct.price) || 0, fee: Number(selectedProduct.fee) || 0,
+        issue_date: selectedProduct.issue_date, qty: qty
+      };
+      recalcCartItem(item);
+      cartItems.push(item);
+    }
+    renderCart();
+
+    // 加進右側清單後,左側清空回到剛登入時的狀態,游標回到票號輸入框,準備刷/打下一個。
+    selectedProduct = null;
+    clearProductInfoBox();
+    const searchInput = document.getElementById('searchInput');
+    searchInput.value = '';
+    document.getElementById('searchResults').style.display = 'none';
+    currentSearchMatches = [];
+    document.getElementById('qtyInput').value = 1;
+    searchInput.focus();
+  }
+
+  function updateCartQty(i, delta) { setCartQty(i, cartItems[i].qty + delta); }
+
+  function setCartQty(i, val) {
+    const q = parseInt(val, 10);
+    if (!q || q <= 0) { removeCartItem(i); return; }
+    cartItems[i].qty = q;
+    recalcCartItem(cartItems[i]);
+    renderCart();
+  }
+
+  function removeCartItem(i) {
+    cartItems.splice(i, 1);
+    renderCart();
+  }
+
+  function renderCart() {
+    const tbody = document.getElementById('cartBody');
+    let tQty = 0, tAmt = 0, tRed = 0, tFee = 0;
+
+    tbody.innerHTML = cartItems.length === 0
+      ? '<tr><td colspan="7" class="text-sub" style="text-align:center; padding:20px;">清單是空的,請從左側搜尋並加入商品。</td></tr>'
+      : cartItems.map((it, i) => {
+          tQty += it.qty; tAmt += it.total_price; tRed += it.reduction_val; tFee += it.total_fee;
+          return `<tr>
+            <td>${i + 1}</td><td>${it.ticket_id}</td><td>${it.product_name || ''}</td>
+            <td style="text-align:right;">$${it.unit_price.toLocaleString()}</td>
+            <td style="text-align:center;">
+              <button class="admin-btn admin-btn-outline admin-btn-sm" onclick="updateCartQty(${i},-1)">-</button>
+              <input type="number" value="${it.qty}" style="width:52px; display:inline-block; text-align:center; margin:0 4px; padding:2px;" onchange="setCartQty(${i}, this.value)">
+              <button class="admin-btn admin-btn-outline admin-btn-sm" onclick="updateCartQty(${i},1)">+</button>
+            </td>
+            <td class="text-primary text-bold" style="text-align:right;">$${it.total_price.toLocaleString()}</td>
+            <td><span class="text-danger" style="cursor:pointer;" onclick="removeCartItem(${i})"><i class="fa-solid fa-xmark"></i></span></td>
+          </tr>`;
+        }).join('');
+
+    document.getElementById('statQty').textContent = tQty.toLocaleString();
+    document.getElementById('statAmt').textContent = '$' + tAmt.toLocaleString();
+    document.getElementById('statRed').textContent = '$' + tRed.toLocaleString();
+    document.getElementById('statFee').textContent = '$' + tFee.toLocaleString();
+  }
+
+  // ==================== 儲存 / 匯出 / 列印 ====================
+
+  async function saveToDB() {
+    const activityName = document.getElementById('allocEvent').value;
+    const branch = document.getElementById('allocBranch').value;
+    const date = document.getElementById('allocDate').value;
+
+    if (!activityName) { alert('⚠️ 請選擇活動地點!'); return; }
+    if (!branch) { alert('⚠️ 請選擇支局!'); return; }
+    if (!date) { alert('⚠️ 請填寫配票日期!'); return; }
+    if (cartItems.length === 0) { alert('⚠️ 配票清單是空的!'); return; }
+
+    const btn = document.getElementById('saveBtn');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 儲存中..."; btn.disabled = true;
+
+    const { data: orderRef, error: claimError } = await supabaseClient.rpc('claim_allocation_order_ref');
+    if (claimError) {
+      btn.innerHTML = "<i class='fa-solid fa-cloud-arrow-up'></i> 儲存至雲端資料庫"; btn.disabled = false;
+      alert('❌ 領取配票單號失敗:' + claimError.message);
+      return;
+    }
+
+    const rows = cartItems.map(it => ({
+      order_ref: orderRef, scheduled_date: date, activity_name: activityName, branch: branch,
+      ticket_id: it.ticket_id, product_name: it.product_name, qty: it.qty,
+      unit_price: it.unit_price, total_amount: it.total_price
+    }));
+
+    const { error } = await supabaseClient.from('allocation_records').insert(rows);
+    btn.innerHTML = "<i class='fa-solid fa-cloud-arrow-up'></i> 儲存至雲端資料庫"; btn.disabled = false;
+
+    if (error) { alert('❌ 儲存失敗:' + error.message); return; }
+
+    alert(`✅ 儲存成功!\n配票單號:${orderRef}`);
+    cartItems = [];
+    renderCart();
+    document.getElementById('recentOrdersSelect').value = '';
+    document.getElementById('deleteOrderBtn').style.display = 'none';
+    await loadRecentOrders();
+    populateRecentOrdersSelect();
+  }
+
+  function exportExcel() {
+    if (cartItems.length === 0) { alert('配票清單是空的!'); return; }
+    const branch = document.getElementById('allocBranch').value || '';
+    const event = document.getElementById('allocEvent').value || '未命名活動';
+
+    const wsData = [
+      ["高雄郵局企劃行銷科 票品配發明細"],
+      ["活動名稱", event, "支局", branch, "配票日期", document.getElementById('allocDate').value],
+      [],
+      ["序號", "票號", "中文說明", "單價", "數量", "總金額", "降庫業績", "AP製作費"]
+    ];
+    cartItems.forEach((it, i) => wsData.push([i + 1, it.ticket_id, it.product_name, it.unit_price, it.qty, it.total_price, it.reduction_val, it.total_fee]));
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "配發明細");
+    XLSX.writeFile(wb, `配票單_${branch}_${event}.xlsx`);
+  }
+
+  function openPrintDialog() {
+    if (cartItems.length === 0) { alert('配票清單是空的,無法列印!'); return; }
+    const branch = document.getElementById('allocBranch').value || '';
+    const event = document.getElementById('allocEvent').value || '未命名活動';
+    const date = document.getElementById('allocDate').value || '';
+
+    let html = '';
+    // 票號最多 12 位英數字,欄位不用留太寬,把空間讓給中文說明;
+    // 一頁 25 項,50 項自動分兩頁,以此類推(Math.ceil 本來就會自動算頁數)。
+    const ITEMS_PER_PAGE = 25;
+    const totalPages = Math.ceil(cartItems.length / ITEMS_PER_PAGE);
+
+    for (let p = 1; p <= totalPages; p++) {
+      const startIdx = (p - 1) * ITEMS_PER_PAGE;
+      const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, cartItems.length);
+      const pageItems = cartItems.slice(startIdx, endIdx);
+
+      html += `<div class="print-page">
+        <div class="print-title">活動攤位配票系統</div>
+        <div class="print-info"><div><b>活動名稱:</b>${event}</div><div><b>配票日期:</b>${date}</div></div>
+        <div class="print-info" style="margin-bottom:15px;"><div><b>配發支局:</b><span style="font-weight:bold; font-size:1.3em;">${branch}</span></div></div>
+        <table class="print-table">
+          <thead><tr><th style="width:6%;">序號</th><th style="width:14%;">票號</th><th style="width:44%;">中文說明</th><th style="width:12%;">單價</th><th style="width:10%;">數量</th><th style="width:14%;">總計</th></tr></thead>
+          <tbody>`;
+
+      pageItems.forEach((it, i) => {
+        html += `<tr><td>${startIdx + i + 1}</td><td>${it.ticket_id}</td><td class="print-cell-name" style="text-align:left;">${it.product_name}</td><td>$${it.unit_price.toLocaleString()}</td><td>${it.qty}</td><td>$${it.total_price.toLocaleString()}</td></tr>`;
+      });
+
+      html += `</tbody></table>`;
+
+      if (p === totalPages) {
+        const tQty = cartItems.reduce((s, it) => s + it.qty, 0);
+        const tAmt = cartItems.reduce((s, it) => s + it.total_price, 0);
+        html += `
+          <div class="print-summary"><div style="margin-right:40px;">總件數:${tQty}</div><div>配發總額:$${tAmt.toLocaleString()}</div></div>
+          <div class="print-sign"><div><b>出納科票券股:</b>___________________</div><div><b>接收支局:</b>___________________</div></div>`;
+      }
+
+      html += `<div class="print-footer">第 ${p} 頁,共 ${totalPages} 頁</div></div>`;
+    }
+
+    document.getElementById('printTemplate').innerHTML = html;
+    window.print();
+  }
+</script>
+</body>
+</html>

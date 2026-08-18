@@ -22,8 +22,8 @@ create table if not exists branches (
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   account text unique not null,      -- 員工編號,例如 E001
-  branch text not null,              -- 支局
-  role text not null check (role in ('ADMIN','STAFF')),
+  branch text not null,              -- 支局(ALLOC 角色不隸屬任何支局,這欄只是湊 NOT NULL,填哪個支局都不影響權限判斷)
+  role text not null check (role in ('ADMIN','STAFF','ALLOC')),  -- ALLOC = 配票單位專用,見 allocation.html
   created_at timestamptz default now()
 );
 

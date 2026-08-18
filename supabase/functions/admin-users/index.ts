@@ -73,7 +73,7 @@ Deno.serve(async (req: Request) => {
       const password = String(body.password || "");
       const branch = String(body.branch || "").trim();
       const role = String(body.role || "");
-      if (!account || !password || !branch || (role !== "ADMIN" && role !== "STAFF")) {
+      if (!account || !password || !branch || (role !== "ADMIN" && role !== "STAFF" && role !== "ALLOC")) {
         return jsonResponse({ status: "ERROR", message: "缺少必要欄位" });
       }
 
