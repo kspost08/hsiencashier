@@ -468,11 +468,12 @@
       <div id="admin-panel-logs" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-box"></i> 清點對帳匯出<span class="info-tip" tabindex="0" data-tip="以整個支局為範圍,依票號比對「配票數量(allocation_records 原始配票量)」對上「售出數量(records)+歸還數量(return_records)」,吻合就是配票剛好都有交代,有落差會列出差多少件。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-box"></i> 清點對帳匯出<span class="info-tip" tabindex="0" data-tip="依配票單號比對「配票數量(allocation_records)」對上「歸還數量(return_records)」,吻合就是這張單的票品已全數歸還,有落差代表還有票品尚未歸還(可能已售出、遺失或尚未清點)。售出紀錄(records)沒有存配票單號,無法精準拆分到單一配票單,所以這裡不列售出欄位。">ⓘ</span></h3>
           </div>
-          <p class="admin-note">選擇支局後匯出 Excel,內容是該支局所有票號的配票/售出/歸還數量比對,以及吻合或落差的說明。</p>
-          <div style="display:flex; gap: var(--sp-2); align-items:center;">
-            <select id="logs-branch" class="admin-select" style="flex:1; max-width:300px; margin:0;"><option value="">- 請選擇支局 -</option></select>
+          <p class="admin-note">選擇配票單號後匯出 Excel,內容是該單所有票號的配票/歸還數量比對,以及是否吻合。STAFF 只能選自己支局的配票單,ADMIN 可以看全部支局。</p>
+          <div style="display:flex; gap: var(--sp-2); align-items:center; flex-wrap:wrap;">
+            <select id="logs-branch-filter" class="admin-select" style="width:200px; margin:0; display:none;" onchange="AdminSystem.loadLogsOrderOptions()"></select>
+            <select id="logs-order-ref" class="admin-select" style="flex:1; max-width:340px; margin:0;"><option value="">- 請選擇配票單號 -</option></select>
             <button class="admin-btn admin-btn-sm" id="logs-export-btn" onclick="AdminSystem.exportReconciliation()"><i class="fa-solid fa-file-excel"></i> 產生對帳匯出</button>
           </div>
           <div id="logs-export-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
@@ -2007,53 +2008,88 @@ const AdminSystem = {
     this.loadRecentAllocOrders();
   },
 
-  // ==================== 模組 6:清點對帳匯出(進退庫誌,比對 allocation_records/records/return_records) ====================
-  // 三張表之間沒有真正的外鍵關聯(見 schema.sql 註解),只能靠 branch+ticket_id 做彙總比對,
-  // 不是逐筆 join。範圍是整個支局(不分配票單號/日期),對帳基準用 allocation_records 的原始配票量。
+  // ==================== 模組 6:清點對帳匯出(進退庫誌,比對 allocation_records/return_records) ====================
+  // 改用配票單號(order_ref)為範圍。records(售出紀錄)沒有存配票單號,只能靠 branch+ticket_id
+  // 回推,無法精準拆分到單一配票單,所以這裡不比對售出數量,只比對配票 vs 歸還。
+  // STAFF 只能選自己支局的單號,ADMIN 可以用支局篩選器縮小範圍或看全部。
 
   initLogsPanel: async function() {
-    await populateBranchSelect('logs-branch', '- 請選擇支局 -');
+    const branchFilterSel = document.getElementById('logs-branch-filter');
+    if (myUser.role === 'ADMIN') {
+      branchFilterSel.style.display = '';
+      if (branchFilterSel.options.length === 0) await populateBranchSelect('logs-branch-filter', '所有支局');
+    } else {
+      branchFilterSel.style.display = 'none';
+      branchFilterSel.value = '';
+    }
+    await this.loadLogsOrderOptions();
+  },
+
+  loadLogsOrderOptions: async function() {
+    const sel = document.getElementById('logs-order-ref');
+    sel.innerHTML = '<option value="">讀取中...</option>';
+
+    let q = supabaseClient.from('allocation_records')
+      .select('order_ref,branch,activity_name,scheduled_date')
+      .order('order_ref', { ascending: false }).limit(1000);
+    if (myUser.role !== 'ADMIN') {
+      q = q.eq('branch', myUser.branchName);
+    } else {
+      const branchVal = document.getElementById('logs-branch-filter').value;
+      if (branchVal) q = q.eq('branch', branchVal);
+    }
+
+    const { data, error } = await q;
+    if (error) { console.error(error); sel.innerHTML = '<option value="">讀取失敗</option>'; return; }
+
+    const orderMap = new Map();
+    (data || []).forEach(r => { if (!orderMap.has(r.order_ref)) orderMap.set(r.order_ref, r); });
+    const orders = Array.from(orderMap.values()).slice(0, 50);
+
+    sel.innerHTML = '<option value="">- 請選擇配票單號 -</option>' +
+      orders.map(o => `<option value="${o.order_ref}">[${o.order_ref}] ${o.scheduled_date} ${o.branch} (${o.activity_name || ''})</option>`).join('');
   },
 
   exportReconciliation: async function() {
-    const branch = document.getElementById('logs-branch').value;
-    if (!branch) { alert("⚠️ 請先選擇支局!"); return; }
+    const orderRef = document.getElementById('logs-order-ref').value;
+    if (!orderRef) { alert("⚠️ 請先選擇配票單號!"); return; }
 
     const btn = document.getElementById('logs-export-btn');
     const resultEl = document.getElementById('logs-export-result');
     btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 統計中..."; btn.disabled = true;
     resultEl.textContent = "";
 
-    const [allocRes, salesRes, returnRes] = await Promise.all([
-      supabaseClient.from('allocation_records').select('ticket_id,product_name,unit_price,qty').eq('branch', branch),
-      supabaseClient.from('records').select('ticket_id,product_name,price').eq('branch', branch),
-      supabaseClient.from('return_records').select('ticket_id,product_name,unit_price,qty').eq('branch', branch)
+    const [allocRes, returnRes] = await Promise.all([
+      supabaseClient.from('allocation_records').select('ticket_id,product_name,unit_price,qty,branch').eq('order_ref', orderRef),
+      supabaseClient.from('return_records').select('ticket_id,product_name,unit_price,qty').eq('ref_order_ref', orderRef)
     ]);
 
-    if (allocRes.error || salesRes.error || returnRes.error) {
-      console.error(allocRes.error || salesRes.error || returnRes.error);
+    if (allocRes.error || returnRes.error) {
+      console.error(allocRes.error || returnRes.error);
       btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
       alert("❌ 讀取資料失敗,請重新整理頁面");
       return;
     }
 
-    const rowsByTicket = {}; // ticket_id -> { product_name, unit_price, allocated, sold, returned }
+    if (!allocRes.data || allocRes.data.length === 0) {
+      btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
+      resultEl.textContent = "查無此配票單號的資料。";
+      return;
+    }
+
+    const branch = allocRes.data[0].branch || '';
+
+    const rowsByTicket = {}; // ticket_id -> { product_name, unit_price, allocated, returned }
     const ensure = (ticketId) => {
-      if (!rowsByTicket[ticketId]) rowsByTicket[ticketId] = { product_name: '', unit_price: 0, allocated: 0, sold: 0, returned: 0 };
+      if (!rowsByTicket[ticketId]) rowsByTicket[ticketId] = { product_name: '', unit_price: 0, allocated: 0, returned: 0 };
       return rowsByTicket[ticketId];
     };
 
-    (allocRes.data || []).forEach(r => {
+    allocRes.data.forEach(r => {
       const row = ensure(r.ticket_id);
       row.allocated += Number(r.qty) || 0;
       row.product_name = row.product_name || r.product_name || '';
       row.unit_price = row.unit_price || Number(r.unit_price) || 0;
-    });
-    (salesRes.data || []).forEach(r => {
-      const row = ensure(r.ticket_id);
-      row.sold += 1; // records 每一列就是賣出一件,沒有 qty 欄位
-      row.product_name = row.product_name || r.product_name || '';
-      row.unit_price = row.unit_price || Number(r.price) || 0;
     });
     (returnRes.data || []).forEach(r => {
       const row = ensure(r.ticket_id);
@@ -2063,34 +2099,29 @@ const AdminSystem = {
     });
 
     const ticketIds = Object.keys(rowsByTicket).sort();
-    if (ticketIds.length === 0) {
-      btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
-      resultEl.textContent = "此支局目前沒有配票/售票/歸票資料可比對。";
-      return;
-    }
 
     let mismatchCount = 0;
     const wsData = [
       ["清點對帳明細"],
-      ["支局", branch, "匯出時間", new Date().toLocaleString('zh-TW', { hour12: false })],
+      ["配票單號", orderRef, "支局", branch, "匯出時間", new Date().toLocaleString('zh-TW', { hour12: false })],
       [],
-      ["票號", "品名", "單價", "配票數量", "售出數量", "歸還數量", "落差(配票-售出-歸還)", "說明"]
+      ["票號", "品名", "單價", "配票數量", "歸還數量", "落差(配票-歸還)", "說明"]
     ];
 
     ticketIds.forEach(ticketId => {
       const row = rowsByTicket[ticketId];
-      const gap = row.allocated - row.sold - row.returned;
+      const gap = row.allocated - row.returned;
       let note;
-      if (gap === 0) note = "吻合";
-      else if (gap > 0) { note = `短少 ${gap} 件(可能遺失、尚未售出或尚未歸還)`; mismatchCount++; }
-      else { note = `多出 ${-gap} 件(售出+歸還超過配票量,請查核)`; mismatchCount++; }
-      wsData.push([ticketId, row.product_name, row.unit_price, row.allocated, row.sold, row.returned, gap, note]);
+      if (gap === 0) note = "吻合(全數歸還)";
+      else if (gap > 0) { note = `尚有 ${gap} 件未歸還(可能已售出、遺失或尚未清點)`; mismatchCount++; }
+      else { note = `多出 ${-gap} 件(歸還超過配票量,請查核)`; mismatchCount++; }
+      wsData.push([ticketId, row.product_name, row.unit_price, row.allocated, row.returned, gap, note]);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "清點對帳");
-    XLSX.writeFile(wb, `清點對帳_${branch}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `清點對帳_${orderRef}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 
     btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
     resultEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已匯出,共 ${ticketIds.length} 種票號,其中 ${mismatchCount} 項有落差。`;
@@ -2115,10 +2146,13 @@ const ReturnSystem = {
       this.masterLoaded = true;
       document.getElementById('returnBarcodeInput').placeholder = '請刷條碼 (或手動輸入請按 Enter)...';
     }
+    const branchFilterSel = document.getElementById('returnBranchFilter');
     if (myUser.role === 'ADMIN') {
-      const sel = document.getElementById('returnBranchFilter');
-      sel.style.display = '';
-      if (sel.options.length <= 1) await populateBranchSelect('returnBranchFilter', '所有支局');
+      branchFilterSel.style.display = '';
+      if (branchFilterSel.options.length <= 1) await populateBranchSelect('returnBranchFilter', '所有支局');
+    } else {
+      branchFilterSel.style.display = 'none';
+      branchFilterSel.value = '';
     }
     await this.loadAllocOrders();
   },
