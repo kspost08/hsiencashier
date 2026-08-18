@@ -39,6 +39,12 @@ revoke execute on function restock_product(text, int, int) from anon;
 
 -- 配票單批次套用:找出某個配票單號底下所有還沒套用的品項,逐一套用同一段補貨邏輯,
 -- 全部成功才整批 commit(單一 function 呼叫本身就在同一個交易裡,失敗會自動整批 rollback)。
+--
+-- product_stock.product_id 有外鍵指到 products.id,如果這個票號還沒在「商品維護」建立過
+-- 商品,直接補貨會撞外鍵失敗。現在改成:套用時如果 products 還沒有這個票號,就用
+-- master_products(票品主檔)現場建一筆——單價用 total(price+stamp+fee 合計,對應
+-- allocation.html/歸票清點用的同一套慣例),主檔也查不到就用 schedule_stock 裡存的品名、
+-- 金額算 0(不擋補貨流程,之後還是可以到「商品維護」手動修正)。
 create or replace function apply_schedule_stock_order(
   p_order_ref text
 ) returns jsonb
@@ -62,6 +68,15 @@ begin
     where order_ref = p_order_ref and applied_at is null
     for update
   loop
+    if not exists (select 1 from products where id = r.ticket_id) then
+      insert into products (id, name, price, stamp, fee, total)
+      select r.ticket_id, coalesce(mp.name, r.product_name),
+             coalesce(mp.price, 0), coalesce(mp.stamp, 0), coalesce(mp.fee, 0), coalesce(mp.total, 0)
+      from (select 1) as dummy
+      left join master_products mp on mp.ticket_id = r.ticket_id
+      on conflict (id) do nothing;
+    end if;
+
     insert into product_stock (product_id, location_id, quantity)
       values (r.ticket_id, r.location_id, r.qty)
       on conflict (product_id, location_id)
@@ -86,6 +101,7 @@ revoke execute on function apply_schedule_stock_order(text) from anon;
 
 -- pg_cron 每日自動套用:找出所有排定日期已到、還沒套用的配票項目,自動套用。
 -- 這顆不透過前端呼叫,直接由 pg_cron 排程觸發,SECURITY DEFINER 繞過 RLS 沒問題。
+-- 一樣套用上面「products 沒有就用 master_products 現場建立」的邏輯,理由相同。
 create or replace function apply_due_schedule_stock() returns void
 language plpgsql
 security definer
@@ -99,6 +115,15 @@ begin
     where scheduled_date <= (now() at time zone 'Asia/Taipei')::date and applied_at is null
     for update
   loop
+    if not exists (select 1 from products where id = r.ticket_id) then
+      insert into products (id, name, price, stamp, fee, total)
+      select r.ticket_id, coalesce(mp.name, r.product_name),
+             coalesce(mp.price, 0), coalesce(mp.stamp, 0), coalesce(mp.fee, 0), coalesce(mp.total, 0)
+      from (select 1) as dummy
+      left join master_products mp on mp.ticket_id = r.ticket_id
+      on conflict (id) do nothing;
+    end if;
+
     insert into product_stock (product_id, location_id, quantity)
       values (r.ticket_id, r.location_id, r.qty)
       on conflict (product_id, location_id)
