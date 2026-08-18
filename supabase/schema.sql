@@ -8,6 +8,17 @@ create table if not exists locations (
   sort_order int default 0
 );
 
+-- 支局主檔(局號/局名/局等),取代原本各處「從既有帳號資料反推支局清單」的做法。
+-- 這是唯讀參照資料(郵局官方支局清單),資料本身用 code(局號)當 PK;
+-- profiles/records/schedule_stock/allocation_records/return_records 的 branch 欄位
+-- 仍然維持自由文字(格式 "局號 局名"),不做外鍵約束——只是把「選支局」的下拉選單
+-- 統一改成讀這張表,不是把既有 5 張表的 branch 欄位改型別(影響範圍太大,詳見討論)。
+create table if not exists branches (
+  code text primary key,   -- 局號,例如 "004150"
+  name text not null,      -- 局名,例如 "高雄大順-50支"
+  grade text                -- 局等,例如 "特"/"甲"/"乙"/"丙"/"丁"
+);
+
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   account text unique not null,      -- 員工編號,例如 E001
@@ -89,7 +100,8 @@ create table if not exists master_products (
   price numeric,
   stamp numeric,
   fee numeric,
-  total numeric
+  total numeric,
+  issue_date text                    -- 發行日期(民國年字串,例如 "108/05/20"),歸票計算機算「降庫業績」用
 );
 
 -- 配票紀錄 Excel 匯入的原始資料(對應高雄郵局內部匯出格式),
@@ -109,6 +121,29 @@ create table if not exists allocation_records (
   created_at timestamptz default now(),
   unique (order_ref, ticket_id)
 );
+
+-- 歸票紀錄(現場清點退回票品),一筆歸還批次(return_order_id)底下有多列品項。
+-- 純粹是紀錄/日誌,不會反向增加 product_stock 庫存(照抄 legacy 歸票計算機邏輯)。
+create table if not exists return_records (
+  id bigint generated always as identity primary key,
+  return_order_id text not null,     -- 歸票單號,R+時間戳,同一批共用
+  ref_order_ref text,                -- 原配票單號(allocation_records.order_ref)
+  ref_scheduled_date date,           -- 原配票日期快照
+  activity_name text,                -- 活動名稱快照
+  branch text not null,              -- 歸票支局
+  ticket_id text not null,           -- 類別+票品+票號
+  product_name text,                 -- 中文說明
+  unit_price numeric,
+  qty numeric not null,
+  total_amount numeric,
+  reduction_val numeric default 0,   -- 降庫業績(發行滿2年才有值)
+  fee_total numeric default 0,       -- AP製作費小計
+  account text,                      -- 操作人員(員工編號)
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_return_records_return_order on return_records(return_order_id);
+create index if not exists idx_return_records_branch on return_records(branch);
 
 -- 索引:records 常用查詢欄位
 create index if not exists idx_records_branch on records(branch);

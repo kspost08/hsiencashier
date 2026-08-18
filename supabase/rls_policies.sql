@@ -36,6 +36,7 @@ grant execute on function public.current_profile_branch() to anon, authenticated
 -- ============================================================
 
 alter table locations enable row level security;
+alter table branches enable row level security;
 alter table profiles enable row level security;
 alter table products enable row level security;
 alter table product_stock enable row level security;
@@ -45,6 +46,7 @@ alter table schedule_stock enable row level security;
 alter table settings enable row level security;
 alter table master_products enable row level security;
 alter table allocation_records enable row level security;
+alter table return_records enable row level security;
 
 -- ============================================================
 -- profiles:只能看自己那筆,或 ADMIN 看全部。
@@ -73,6 +75,21 @@ create policy "locations_select_authenticated"
 
 create policy "locations_write_admin"
   on locations for all
+  using (current_profile_role() = 'ADMIN')
+  with check (current_profile_role() = 'ADMIN');
+
+-- ============================================================
+-- branches:支局主檔,所有登入者可讀(選支局下拉選單要用),只有 ADMIN 可寫。
+-- 沒有匿名(anon)讀取權限——同一個 Supabase 專案未來如果要做配票專用入口,
+-- 一樣走 Supabase Auth 登入即可查這張表,不需要開放給未登入的呼叫端。
+-- ============================================================
+
+create policy "branches_select_authenticated"
+  on branches for select
+  using (auth.role() = 'authenticated');
+
+create policy "branches_write_admin"
+  on branches for all
   using (current_profile_role() = 'ADMIN')
   with check (current_profile_role() = 'ADMIN');
 
@@ -149,13 +166,37 @@ create policy "schedule_stock_admin_only"
   with check (current_profile_role() = 'ADMIN');
 
 -- ============================================================
--- allocation_records:配票紀錄 Excel 匯入暫存區,只有 ADMIN 可讀可寫。
+-- allocation_records:配票紀錄 Excel 匯入暫存區,寫入(匯入/勾選加入排程)
+-- 只有 ADMIN,但讀取放寬給 STAFF 依支局查詢自己的配票單(歸票計算機
+-- 選單要用),ADMIN 一樣能看全部。
 -- ============================================================
 
-create policy "allocation_records_admin_only"
-  on allocation_records for all
+create policy "allocation_records_select_own_branch_or_admin"
+  on allocation_records for select
+  using (branch = current_profile_branch() or current_profile_role() = 'ADMIN');
+
+create policy "allocation_records_insert_admin"
+  on allocation_records for insert
+  with check (current_profile_role() = 'ADMIN');
+
+create policy "allocation_records_update_admin"
+  on allocation_records for update
   using (current_profile_role() = 'ADMIN')
   with check (current_profile_role() = 'ADMIN');
+
+create policy "allocation_records_delete_admin"
+  on allocation_records for delete
+  using (current_profile_role() = 'ADMIN');
+
+-- ============================================================
+-- return_records:歸票紀錄。STAFF 只能看自己支局的,ADMIN 看全部。
+-- 沒有 INSERT/UPDATE/DELETE policy —— 只能走 save_return_order RPC
+-- (security definer),前端不能直接寫,道理跟 records 表一樣。
+-- ============================================================
+
+create policy "return_records_select_own_branch_or_admin"
+  on return_records for select
+  using (branch = current_profile_branch() or current_profile_role() = 'ADMIN');
 
 -- ============================================================
 -- settings:任何人可讀(含未登入),因為登入畫面本身就要顯示

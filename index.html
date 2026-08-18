@@ -261,6 +261,7 @@
   <button id="nav-scan" class="active" onclick="showPage('scan')"><i class="fa-solid fa-cart-shopping"></i> 掃描收銀</button>
   <button id="nav-records" onclick="showPage('records')"><i class="fa-solid fa-receipt"></i> 銷售紀錄</button>
   <button id="nav-stock" onclick="showPage('stock')"><i class="fa-solid fa-box"></i> 庫存管理</button>
+  <button id="nav-return" onclick="showPage('return'); ReturnSystem.init();"><i class="fa-solid fa-rotate-left"></i> 歸票清點</button>
   <button id="nav-admin" onclick="showPage('admin'); AdminSystem.init();" style="display:none; color:var(--admin-color);"><i class="fa-solid fa-gear"></i> 系統後台</button>
 </nav>
 
@@ -313,6 +314,49 @@
 <select id="searchLimit" style="flex:0.8; margin:0;"><option value="20">20筆</option><option value="50">50筆</option><option value="100">100筆</option><option value="10000">全部</option></select><button id="performSearchBtn" class="btn-base btn-download" onclick="performSearch()">搜尋</button><button id="pdfBtn" class="btn-base btn-download" onclick="downloadSalesPDF()" style="display:none;"><i class="fa-solid fa-download"></i> 下載報表</button><button id="excelEmailBtn" class="btn-base btn-download" onclick="handleExcelEmail()" style="display:none; background:#2e7d32; margin-left: var(--sp-2);"><i class="fa-solid fa-envelope"></i> 寄送 Excel</button></div><div id="recordTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius: var(--radius-sm);"></div><div id="searchSummary" class="text-right text-bold text-danger" style="display:none; padding: var(--sp-2); font-size: var(--fs-lg);">總計金額: <span id="searchResultTotal">$0</span></div></div></div>
 
 <div id="page-stock" class="page"><div class="card" style="height:100%; display:flex; flex-direction:column;"><h3 style="margin:0 0 var(--sp-2) 0; font-size: var(--fs-md);"><i class="fa-solid fa-box"></i> 庫存詳情清單 <span id="stockLocationLabel" class="text-primary text-bold" style="font-size: var(--fs-sm);"></span></h3><div id="stockTableArea" style="flex:1; overflow-y:auto; border:1px solid #eee; border-radius: var(--radius-sm);"></div></div></div>
+
+<div id="page-return" class="page">
+  <div class="main-layout">
+    <div class="left-section">
+      <div style="padding:8px; border-bottom:1px solid #eee; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; gap:6px; align-items:center;">
+          <select id="returnOrderSelect" onchange="ReturnSystem.lockOrder(this.value)" style="flex:1; margin:0;">
+            <option value="">- 選擇要歸還的配票單 -</option>
+          </select>
+          <select id="returnBranchFilter" onchange="ReturnSystem.loadAllocOrders()" style="display:none; width:150px; margin:0;">
+            <option value="">所有支局</option>
+          </select>
+        </div>
+        <div id="returnLockedInfo" class="text-sub" style="font-size:var(--fs-sm); display:none;">
+          活動:<span id="returnLblEvent" class="text-bold"></span>
+          ・支局:<span id="returnLblBranch" class="text-bold"></span>
+          ・配票日:<span id="returnLblDate" class="text-bold"></span>
+        </div>
+        <input type="text" id="returnBarcodeInput" placeholder="請刷條碼 (或手動輸入請按 Enter)..." onkeypress="ReturnSystem.handleBarcodeEnter(event)">
+        <div id="returnScanMsg" class="text-sub" style="font-size:var(--fs-xs);">游標停在此處,刷讀條碼會自動加入並累加數量。</div>
+      </div>
+      <div style="flex:1; overflow-y:auto; padding:0 5px;">
+        <table class="scan-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th><th class="col-id">票號</th><th class="col-name">品名</th>
+              <th class="col-price-unit">單價</th><th style="width:100px; text-align:center;">歸還數量</th>
+              <th class="col-total">總計</th><th style="width:30px"></th>
+            </tr>
+          </thead>
+          <tbody id="returnCartList"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="right-section">
+      <div class="card">
+        <div class="stat-item"><span>歸還總件數</span><span id="returnTQty">0</span></div>
+        <div class="stat-item stat-total text-danger"><span>歸還總金額</span><span id="returnTAmt">$0</span></div>
+      </div>
+      <button class="btn-save" id="returnSaveBtn" onclick="ReturnSystem.submit()">確認並送出歸票紀錄</button>
+    </div>
+  </div>
+</div>
 
 <div id="page-admin" class="page" style="padding: 10px; height: 100%;">
 
@@ -424,7 +468,7 @@
           </div>
           <div class="admin-form-row">
             <div class="admin-form-group"><label>配票單號 <span class="text-danger">*</span></label><input type="text" id="sched-order-ref" class="admin-input" placeholder="例: PC20260901-01"></div>
-            <div class="admin-form-group"><label>支局</label><input type="text" id="sched-branch" class="admin-input" placeholder="例: 高雄郵局"></div>
+            <div class="admin-form-group"><label>支局</label><select id="sched-branch" class="admin-select"><option value="">- 支局(選填) -</option></select></div>
             <div class="admin-form-group"><label>配票日期 <span class="text-danger">*</span></label><input type="date" id="sched-date" class="admin-input"></div>
           </div>
           <div class="admin-form-row">
@@ -457,7 +501,19 @@
         </div>
       </div>
 
-      <div id="admin-panel-logs" class="admin-panel"><div class="admin-card"><h3><i class="fa-solid fa-box"></i> 進退庫日誌</h3><p class="admin-note"><i class="fa-solid fa-hammer"></i> 模組建置中...</p></div></div>
+      <div id="admin-panel-logs" class="admin-panel">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3><i class="fa-solid fa-box"></i> 清點對帳匯出<span class="info-tip" tabindex="0" data-tip="以整個支局為範圍,依票號比對「配票數量(allocation_records 原始配票量)」對上「售出數量(records)+歸還數量(return_records)」,吻合就是配票剛好都有交代,有落差會列出差多少件。">ⓘ</span></h3>
+          </div>
+          <p class="admin-note">選擇支局後匯出 Excel,內容是該支局所有票號的配票/售出/歸還數量比對,以及吻合或落差的說明。</p>
+          <div style="display:flex; gap: var(--sp-2); align-items:center;">
+            <select id="logs-branch" class="admin-select" style="flex:1; max-width:300px; margin:0;"><option value="">- 請選擇支局 -</option></select>
+            <button class="admin-btn admin-btn-sm" id="logs-export-btn" onclick="AdminSystem.exportReconciliation()"><i class="fa-solid fa-file-excel"></i> 產生對帳匯出</button>
+          </div>
+          <div id="logs-export-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
+        </div>
+      </div>
       <div id="admin-panel-reserved" class="admin-panel"><div class="admin-card"><h3><i class="fa-solid fa-screwdriver-wrench"></i> 預留擴充區</h3><p class="admin-note"><i class="fa-solid fa-hammer"></i> 模組建置中...</p></div></div>
 
       <div id="admin-panel-reports" class="admin-panel">
@@ -531,7 +587,7 @@
             <input type="hidden" id="admin-user-action">
             <div class="admin-form-group"><label>員工編號</label><input type="text" id="admin-user-acc" class="admin-input"></div>
             <div class="admin-form-group" id="admin-user-pwd-group"><label>密碼(僅新增帳號時需要)</label><input type="text" id="admin-user-pwd" class="admin-input"></div>
-            <div class="admin-form-group"><label>所屬支局</label><input type="text" id="admin-user-branch" class="admin-input"></div>
+            <div class="admin-form-group"><label>所屬支局</label><select id="admin-user-branch" class="admin-select"><option value="">- 請選擇支局 -</option></select></div>
             <div class="admin-form-group"><label>權限</label><select id="admin-user-role" class="admin-select"><option value="STAFF">STAFF</option><option value="ADMIN">ADMIN</option></select></div>
           </div>
           <div class="admin-modal-footer">
@@ -638,6 +694,28 @@
   let lastRecords = []; // 陣列-of-陣列格式,供 downloadSalesPDF() 用(欄位對應 legacy Records 分頁)
   let lastRecordsRaw = []; // performSearch() 查到的原始 records 列(含 order_id),供 handleDeleteRecord() 用
   let posChannel = null; // 顧客顯示同步用的 Realtime Broadcast channel,登入時建立、登出時清掉
+
+  // 支局主檔快取:所有「選支局」下拉選單(帳號管理/全支局銷售總覽篩選/歸票清點篩選/
+  // 排程補貨手動輸入)統一從這裡取資料,不要各自查 profiles 反推,那樣清單會不完整
+  // (只列出「目前已經有帳號」的支局)也容易各處邏輯兜不起來。
+  let branchesCache = null;
+  async function getBranches() {
+    if (!branchesCache) {
+      const { data, error } = await supabaseClient.from('branches').select('code,name,grade').order('code');
+      if (error) { console.error(error); return []; }
+      branchesCache = data || [];
+    }
+    return branchesCache;
+  }
+  function branchOptionText(b) { return b.code + ' ' + b.name; }
+  async function populateBranchSelect(selectId, placeholder) {
+    const branches = await getBranches();
+    const sel = document.getElementById(selectId);
+    const current = sel.value;
+    sel.innerHTML = `<option value="">${placeholder}</option>` +
+      branches.map(b => `<option value="${branchOptionText(b)}">${branchOptionText(b)}</option>`).join('');
+    if (current) sel.value = current;
+  }
 
   // 對應原本 GAS 的 combinedBranch,customer.html 的 URL 參數跟 Broadcast 頻道 key 都要用同一個字串,
   // 只在這裡定義一次,避免兩邊各自組字串結果不一致導致同步悄悄失效。
@@ -946,6 +1024,7 @@
     document.getElementById('nav-'+p).classList.add('active');
     if(p === 'scan') setTimeout(() => document.getElementById('barcodeInput').focus(), 100);
     else if (p === 'records') setTimeout(() => document.getElementById('performSearchBtn').focus(), 100);
+    else if (p === 'return') setTimeout(() => document.getElementById('returnBarcodeInput').focus(), 100);
   }
 
   document.getElementById('barcodeInput').addEventListener('keypress', e => { if (e.key === 'Enter') { const code = e.target.value.trim().toUpperCase(); if (!code) return; if (code === 'STAMPS00') { openStampModal(); e.target.value = ''; return; } if (products[code]) { const current = cart.filter(item => item.id === code).length; if ((products[code].stock - current) <= 0) showToast("<i class='fa-solid fa-circle-xmark'></i> 該地點庫存不足!"); else { cart.unshift({...products[code]}); renderCart(); showToast("<i class='fa-solid fa-circle-check'></i> 已加入"); } } else showToast("<i class='fa-solid fa-circle-xmark'></i> 找不到票號"); e.target.value = ''; } });
@@ -1176,6 +1255,7 @@ const AdminSystem = {
     if (tabName === 'reports') this.loadReports();
     if (tabName === 'records') this.loadAllRecords();
     if (tabName === 'schedule') this.initSchedulePanel();
+    if (tabName === 'logs') this.initLogsPanel();
   },
 
   // ==================== 模組 1:設定管理(settings 表) ====================
@@ -1293,8 +1373,9 @@ const AdminSystem = {
     document.getElementById('admin-users-table-container').innerHTML = html + '</tbody></table>';
   },
 
-  openUserModal: function(i) {
+  openUserModal: async function(i) {
     document.getElementById('admin-user-modal').style.display = 'flex';
+    await populateBranchSelect('admin-user-branch', '- 請選擇支局 -');
     const pwdGroup = document.getElementById('admin-user-pwd-group');
     if (i !== undefined) {
       let u = this.usersData[i];
@@ -1761,11 +1842,7 @@ const AdminSystem = {
 
   loadAllRecords: async function() {
     const branchSelect = document.getElementById('admin-rec-branch');
-    if (branchSelect.options.length <= 1) {
-      const { data: profs } = await supabaseClient.from('profiles').select('branch');
-      const branches = [...new Set((profs || []).map(p => p.branch).filter(Boolean))].sort();
-      branchSelect.innerHTML = '<option value="">所有支局</option>' + branches.map(b => `<option value="${b}">${b}</option>`).join('');
-    }
+    if (branchSelect.options.length <= 1) await populateBranchSelect('admin-rec-branch', '所有支局');
     const locSelect = document.getElementById('admin-rec-location');
     if (locSelect.options.length <= 1 && myUser.locationList && myUser.locationList.length > 0) {
       locSelect.innerHTML = '<option value="">所有攤位</option>' + myUser.locationList.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
@@ -1846,6 +1923,7 @@ const AdminSystem = {
     this.scheduleLocations = locs || [];
     const sel = document.getElementById('sched-location');
     sel.innerHTML = '<option value="">請選擇</option>' + this.scheduleLocations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+    await populateBranchSelect('sched-branch', '- 支局(選填) -');
   },
 
   fetchScheduleMasterInfo: async function() {
@@ -2106,8 +2184,320 @@ const AdminSystem = {
 
     showToast(`<i class="fa-solid fa-circle-check"></i> 已加入 ${scheduleRows.length} 筆到排程補貨`);
     this.lookupAllocationOrder();
+  },
+
+  // ==================== 模組 6:清點對帳匯出(進退庫誌,比對 allocation_records/records/return_records) ====================
+  // 三張表之間沒有真正的外鍵關聯(見 schema.sql 註解),只能靠 branch+ticket_id 做彙總比對,
+  // 不是逐筆 join。範圍是整個支局(不分配票單號/日期),對帳基準用 allocation_records 的原始配票量。
+
+  initLogsPanel: async function() {
+    await populateBranchSelect('logs-branch', '- 請選擇支局 -');
+  },
+
+  exportReconciliation: async function() {
+    const branch = document.getElementById('logs-branch').value;
+    if (!branch) { alert("⚠️ 請先選擇支局!"); return; }
+
+    const btn = document.getElementById('logs-export-btn');
+    const resultEl = document.getElementById('logs-export-result');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 統計中..."; btn.disabled = true;
+    resultEl.textContent = "";
+
+    const [allocRes, salesRes, returnRes] = await Promise.all([
+      supabaseClient.from('allocation_records').select('ticket_id,product_name,unit_price,qty').eq('branch', branch),
+      supabaseClient.from('records').select('ticket_id,product_name,price').eq('branch', branch),
+      supabaseClient.from('return_records').select('ticket_id,product_name,unit_price,qty').eq('branch', branch)
+    ]);
+
+    if (allocRes.error || salesRes.error || returnRes.error) {
+      console.error(allocRes.error || salesRes.error || returnRes.error);
+      btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
+      alert("❌ 讀取資料失敗,請重新整理頁面");
+      return;
+    }
+
+    const rowsByTicket = {}; // ticket_id -> { product_name, unit_price, allocated, sold, returned }
+    const ensure = (ticketId) => {
+      if (!rowsByTicket[ticketId]) rowsByTicket[ticketId] = { product_name: '', unit_price: 0, allocated: 0, sold: 0, returned: 0 };
+      return rowsByTicket[ticketId];
+    };
+
+    (allocRes.data || []).forEach(r => {
+      const row = ensure(r.ticket_id);
+      row.allocated += Number(r.qty) || 0;
+      row.product_name = row.product_name || r.product_name || '';
+      row.unit_price = row.unit_price || Number(r.unit_price) || 0;
+    });
+    (salesRes.data || []).forEach(r => {
+      const row = ensure(r.ticket_id);
+      row.sold += 1; // records 每一列就是賣出一件,沒有 qty 欄位
+      row.product_name = row.product_name || r.product_name || '';
+      row.unit_price = row.unit_price || Number(r.price) || 0;
+    });
+    (returnRes.data || []).forEach(r => {
+      const row = ensure(r.ticket_id);
+      row.returned += Number(r.qty) || 0;
+      row.product_name = row.product_name || r.product_name || '';
+      row.unit_price = row.unit_price || Number(r.unit_price) || 0;
+    });
+
+    const ticketIds = Object.keys(rowsByTicket).sort();
+    if (ticketIds.length === 0) {
+      btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
+      resultEl.textContent = "此支局目前沒有配票/售票/歸票資料可比對。";
+      return;
+    }
+
+    let mismatchCount = 0;
+    const wsData = [
+      ["清點對帳明細"],
+      ["支局", branch, "匯出時間", new Date().toLocaleString('zh-TW', { hour12: false })],
+      [],
+      ["票號", "品名", "單價", "配票數量", "售出數量", "歸還數量", "落差(配票-售出-歸還)", "說明"]
+    ];
+
+    ticketIds.forEach(ticketId => {
+      const row = rowsByTicket[ticketId];
+      const gap = row.allocated - row.sold - row.returned;
+      let note;
+      if (gap === 0) note = "吻合";
+      else if (gap > 0) { note = `短少 ${gap} 件(可能遺失、尚未售出或尚未歸還)`; mismatchCount++; }
+      else { note = `多出 ${-gap} 件(售出+歸還超過配票量,請查核)`; mismatchCount++; }
+      wsData.push([ticketId, row.product_name, row.unit_price, row.allocated, row.sold, row.returned, gap, note]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "清點對帳");
+    XLSX.writeFile(wb, `清點對帳_${branch}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+    btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
+    resultEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已匯出,共 ${ticketIds.length} 種票號,其中 ${mismatchCount} 項有落差。`;
   }
 
+};
+
+// ==================== 歸票清點(現場清點退回票品,取代 legacy「弦弦歸票計算機」) ====================
+// 純紀錄/日誌,不連動 product_stock 庫存(照抄 legacy saveReturn() 的邏輯)。
+// STAFF 只能操作自己支局的配票單(RLS + save_return_order RPC 雙重把關),ADMIN 看全部支局。
+const ReturnSystem = {
+  masterProducts: [],
+  masterLoaded: false,
+  allocOrders: [],
+  lockedOrder: null,
+  cartItems: [],
+
+  init: async function() {
+    if (!this.masterLoaded) {
+      document.getElementById('returnBarcodeInput').placeholder = '載入商品字典中...';
+      await this.loadMasterProducts();
+      this.masterLoaded = true;
+      document.getElementById('returnBarcodeInput').placeholder = '請刷條碼 (或手動輸入請按 Enter)...';
+    }
+    if (myUser.role === 'ADMIN') {
+      const sel = document.getElementById('returnBranchFilter');
+      sel.style.display = '';
+      if (sel.options.length <= 1) await populateBranchSelect('returnBranchFilter', '所有支局');
+    }
+    await this.loadAllocOrders();
+  },
+
+  loadMasterProducts: async function() {
+    this.masterProducts = [];
+    let rangeStart = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabaseClient.from('master_products')
+        .select('ticket_id,name,price,fee,issue_date').range(rangeStart, rangeStart + pageSize - 1);
+      if (error) { console.error(error); break; }
+      this.masterProducts.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+      rangeStart += pageSize;
+    }
+  },
+
+  loadAllocOrders: async function() {
+    const sel = document.getElementById('returnOrderSelect');
+    sel.innerHTML = '<option value="">讀取中...</option>';
+
+    let q = supabaseClient.from('allocation_records')
+      .select('order_ref,branch,activity_name,scheduled_date')
+      .order('scheduled_date', { ascending: false }).limit(500);
+    if (myUser.role !== 'ADMIN') {
+      q = q.eq('branch', myUser.branchName);
+    } else {
+      const branchVal = document.getElementById('returnBranchFilter').value;
+      if (branchVal) q = q.eq('branch', branchVal);
+    }
+
+    const { data, error } = await q;
+    if (error) { console.error(error); sel.innerHTML = '<option value="">讀取失敗</option>'; return; }
+
+    const orderMap = new Map();
+    (data || []).forEach(r => { if (!orderMap.has(r.order_ref)) orderMap.set(r.order_ref, r); });
+    this.allocOrders = Array.from(orderMap.values()).slice(0, 20);
+
+    sel.innerHTML = '<option value="">- 選擇要歸還的配票單 -</option>' +
+      this.allocOrders.map(o => `<option value="${o.order_ref}">[${o.order_ref}] ${o.scheduled_date} ${o.branch} (${o.activity_name || ''})</option>`).join('');
+  },
+
+  lockOrder: function(orderRef) {
+    if (!orderRef) {
+      document.getElementById('returnLockedInfo').style.display = 'none';
+      this.lockedOrder = null;
+      return;
+    }
+    const order = this.allocOrders.find(o => o.order_ref === orderRef);
+    if (!order) return;
+    this.lockedOrder = order;
+    document.getElementById('returnLblEvent').textContent = order.activity_name || '-';
+    document.getElementById('returnLblBranch').textContent = order.branch || '-';
+    document.getElementById('returnLblDate').textContent = order.scheduled_date || '-';
+    document.getElementById('returnLockedInfo').style.display = 'block';
+    document.getElementById('returnBarcodeInput').focus();
+  },
+
+  // 發行滿 2 年的票算「降庫業績」,搬自 legacy isReduction():issue_date 是民國年字串(例如 "108/05/20")。
+  isReduction: function(issueDateStr) {
+    if (!issueDateStr || issueDateStr === '-') return false;
+    const parts = String(issueDateStr).split('/');
+    const issueYear = parseInt(parts[0], 10);
+    if (isNaN(issueYear)) return false;
+    const currentYear = new Date().getFullYear() - 1911;
+    return (currentYear - issueYear) >= 2;
+  },
+
+  recalcRow: function(item) {
+    item.total_amount = item.unit_price * item.qty;
+    item.fee_total = (item.fee || 0) * item.qty;
+    item.reduction_val = this.isReduction(item.issue_date) ? item.total_amount : 0;
+  },
+
+  handleBarcodeEnter: function(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const input = document.getElementById('returnBarcodeInput');
+    const code = input.value.trim().toUpperCase();
+    if (!code) return;
+    if (!this.lockedOrder) {
+      alert('請先選擇上方的「配票單」才能開始刷讀!');
+      input.value = '';
+      return;
+    }
+    this.processBarcode(code);
+  },
+
+  processBarcode: function(code) {
+    const input = document.getElementById('returnBarcodeInput');
+    const found = this.masterProducts.find(p => p.ticket_id === code);
+    if (!found) {
+      this.scanMsg(false, '找不到該商品:' + code);
+      input.value = '';
+      return;
+    }
+
+    const idx = this.cartItems.findIndex(x => x.ticket_id === code);
+    if (idx >= 0) {
+      this.cartItems[idx].qty += 1;
+      this.recalcRow(this.cartItems[idx]);
+    } else {
+      const item = {
+        ticket_id: code, product_name: found.name,
+        unit_price: Number(found.price) || 0, fee: Number(found.fee) || 0,
+        issue_date: found.issue_date, qty: 1
+      };
+      this.recalcRow(item);
+      this.cartItems.push(item);
+    }
+
+    this.renderCart();
+    this.scanMsg(true, '✅ 成功加入:' + found.name);
+    input.value = '';
+    input.focus();
+  },
+
+  scanMsg: function(success, msg) {
+    const el = document.getElementById('returnScanMsg');
+    el.textContent = msg;
+    el.classList.toggle('text-danger', !success);
+    el.classList.toggle('text-primary', success);
+  },
+
+  updateQty: function(index, delta) {
+    this.setQty(index, this.cartItems[index].qty + delta);
+  },
+
+  setQty: function(index, val) {
+    const q = parseInt(val, 10);
+    if (isNaN(q) || q <= 0) { this.removeItem(index); return; }
+    this.cartItems[index].qty = q;
+    this.recalcRow(this.cartItems[index]);
+    this.renderCart();
+  },
+
+  removeItem: function(index) {
+    this.cartItems.splice(index, 1);
+    this.renderCart();
+    document.getElementById('returnBarcodeInput').focus();
+  },
+
+  renderCart: function() {
+    const tbody = document.getElementById('returnCartList');
+    let tQty = 0, tAmt = 0;
+
+    tbody.innerHTML = this.cartItems.length === 0
+      ? '<tr><td colspan="7" class="text-sub text-center" style="padding:20px;">請先選擇左側配票單,然後開始刷讀條碼。</td></tr>'
+      : this.cartItems.map((it, i) => {
+          tQty += it.qty; tAmt += it.total_amount;
+          return '<tr><td>' + (i + 1) + '</td><td>' + it.ticket_id + '</td><td>' + it.product_name + '</td>' +
+            '<td>$' + it.unit_price.toLocaleString() + '</td>' +
+            '<td style="text-align:center;">' +
+              '<button class="btn-delete" onclick="ReturnSystem.updateQty(' + i + ',-1)">-</button> ' +
+              '<input type="number" value="' + it.qty + '" style="width:44px; text-align:center;" onchange="ReturnSystem.setQty(' + i + ', this.value)"> ' +
+              '<button class="btn-delete" onclick="ReturnSystem.updateQty(' + i + ',1)">+</button>' +
+            '</td>' +
+            '<td class="amount-primary">$' + it.total_amount.toLocaleString() + '</td>' +
+            '<td><span class="text-danger" style="cursor:pointer;" onclick="ReturnSystem.removeItem(' + i + ')"><i class="fa-solid fa-xmark"></i></span></td></tr>';
+        }).join('');
+
+    document.getElementById('returnTQty').textContent = tQty.toLocaleString();
+    document.getElementById('returnTAmt').textContent = '$' + tAmt.toLocaleString();
+  },
+
+  submit: async function() {
+    if (!this.lockedOrder) { alert('⚠️ 請先選擇原配票單號!'); return; }
+    if (this.cartItems.length === 0) { alert('⚠️ 歸還清單是空的!'); return; }
+
+    const btn = document.getElementById('returnSaveBtn');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 寫入中..."; btn.disabled = true;
+
+    const { data, error } = await supabaseClient.rpc('save_return_order', {
+      p_ref_order_ref: this.lockedOrder.order_ref,
+      p_items: this.cartItems
+    });
+
+    btn.innerHTML = "確認並送出歸票紀錄"; btn.disabled = false;
+
+    if (error) {
+      console.error(error);
+      alert('❌ 存檔失敗,請重新整理頁面');
+      return;
+    }
+    if (data.status === 'ERROR') {
+      alert('❌ ' + data.message);
+      return;
+    }
+
+    alert(`✅ 歸票成功!\n系統已產生歸票單號:${data.return_order_id}`);
+
+    this.cartItems = [];
+    this.renderCart();
+    document.getElementById('returnOrderSelect').value = '';
+    document.getElementById('returnLockedInfo').style.display = 'none';
+    this.lockedOrder = null;
+    await this.loadAllocOrders();
+    document.getElementById('returnBarcodeInput').focus();
+  }
 };
 </script>
 
