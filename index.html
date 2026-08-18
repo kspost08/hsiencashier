@@ -2198,7 +2198,10 @@ const ReturnSystem = {
       .select('order_ref,branch,activity_name,scheduled_date')
       .order('scheduled_date', { ascending: false }).limit(500);
     if (myUser.role !== 'ADMIN') {
-      q = q.eq('branch', myUser.branchName);
+      // STAFF 現場歸票,只能看到自己登入攤位(activity_name)的配票單,避免手滑選到別的攤位
+      // 導致庫存被加回錯的地點(save_return_order RPC 是照配票單自己的活動地點加庫存,
+      // 不是照登入攤位,這裡純粹是防呆,擋在選單這一關)。
+      q = q.eq('branch', myUser.branchName).eq('activity_name', myUser.location);
     } else {
       const branchVal = document.getElementById('returnBranchFilter').value;
       if (branchVal) q = q.eq('branch', branchVal);
