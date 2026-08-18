@@ -75,13 +75,14 @@ create table if not exists schedule_stock (
   id bigint generated always as identity primary key,
   scheduled_date date not null,      -- 配票日期,pg_cron 每天檢查這個欄位
   location_id int references locations(id),
-  order_ref text not null,           -- 配票單號,一個單號底下可以有多列品項(不是 unique)
+  order_ref text not null,           -- 配票單號,一個單號底下可以有多列品項
   branch text,                       -- 支局(純記錄用,實際扣/補庫存是靠 location_id)
   ticket_id text not null,           -- 票號,對應 products.id
   product_name text not null,        -- 票品名稱,新增時可從 master_products 帶入,個別可再編輯
   qty int not null,                  -- 要補的數量
-  applied_at timestamptz,            -- 是否已套用補貨(手動套用或 pg_cron 自動套用都會寫入)
-  created_at timestamptz default now()
+  applied_at timestamptz,            -- 是否已套用補貨(pg_cron 自動套用時寫入)
+  created_at timestamptz default now(),
+  unique (order_ref, ticket_id)      -- 同一張配票單只能整批加入排程一次,不能分批追加同一票號
 );
 
 create table if not exists settings (

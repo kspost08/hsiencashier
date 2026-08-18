@@ -448,24 +448,20 @@
       <div id="admin-panel-schedule" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-list-check"></i> 從配票紀錄選擇加入排程補貨<span class="info-tip" tabindex="0" data-tip="配票單號由配票單位在專用頁面(allocation.html)建立,這裡輸入配票單號查詢即可勾選要排程補貨的品項再送出。活動地點如果還沒對應到現有攤位,該列會停用無法勾選,需先到「系統設定」新增攤位。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> 近期配票單號<span class="info-tip" tabindex="0" data-tip="配票單號由配票單位在專用頁面(allocation.html)建立。點一列可以直接帶入下方查詢。">ⓘ</span></h3>
+          </div>
+          <div id="recent-alloc-orders-table" style="max-height:240px; overflow-y:auto;">載入中...</div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3><i class="fa-solid fa-list-check"></i> 查詢配票單號並加入排程<span class="info-tip" tabindex="0" data-tip="配票日期到了,每天凌晨會自動套用補貨(pg_cron),這裡只負責把配票單「排進去」。同一張配票單只能整批加入一次,不能分批追加——如果之後要補新的品項,請在配票頁面建立新的配票單號。活動地點如果對不到現有攤位,需先到「系統設定」新增攤位才能加入。">ⓘ</span></h3>
           </div>
           <div style="display:flex; gap: var(--sp-2);">
             <input type="text" id="alloc-lookup-ref" class="admin-input" placeholder="輸入配票單號" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') AdminSystem.lookupAllocationOrder()">
             <button class="admin-btn admin-btn-sm" onclick="AdminSystem.lookupAllocationOrder()"><i class="fa-solid fa-magnifying-glass"></i> 查詢</button>
           </div>
           <div id="alloc-lookup-result" style="margin-top: var(--sp-3);"></div>
-        </div>
-
-        <div class="admin-card">
-          <div class="admin-card-header">
-            <h3><i class="fa-solid fa-list-check"></i> 依配票單號查詢並套用補貨<span class="info-tip" tabindex="0" data-tip="套用後庫存立即生效並寫入進退庫紀錄;已套用的品項不會被每日自動排程(pg_cron)重複套用。如果票號還沒在「商品維護」建立過商品,套用時會自動用票品主檔(master_products)的資料現場建立,不會卡住。">ⓘ</span></h3>
-          </div>
-          <div style="display:flex; gap: var(--sp-2);">
-            <input type="text" id="sched-lookup-ref" class="admin-input" placeholder="輸入配票單號" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') AdminSystem.lookupScheduleOrder()">
-            <button class="admin-btn admin-btn-sm" onclick="AdminSystem.lookupScheduleOrder()"><i class="fa-solid fa-magnifying-glass"></i> 查詢</button>
-          </div>
-          <div id="sched-lookup-result" style="margin-top: var(--sp-3);"></div>
         </div>
       </div>
 
@@ -1903,51 +1899,38 @@ const AdminSystem = {
   // ==================== 模組 6:排程補貨(schedule_stock 表 + pg_cron) ====================
   scheduleLocations: [],
 
-  // 配票單號現在一律由配票單位在 allocation.html 建立,這裡只需要 scheduleLocations
-  // 供 lookupAllocationOrder()/lookupScheduleOrder() 顯示結果時查 location_id -> name 用。
+  // 配票單號現在一律由配票單位在 allocation.html 建立。補貨本身完全交給 pg_cron
+  // (apply_due_schedule_stock,每天照 scheduled_date 自動套用),這裡不再提供手動套用
+  // 的入口——配票日期就是唯一觸發補貨的時間點,不要有人手滑提早按到。
   initSchedulePanel: async function() {
     const { data: locs } = await supabaseClient.from('locations').select('id,name').order('sort_order');
     this.scheduleLocations = locs || [];
+    await this.loadRecentAllocOrders();
   },
 
-  lookupScheduleOrder: async function() {
-    const orderRef = document.getElementById('sched-lookup-ref').value.trim();
-    if (!orderRef) { alert("請先輸入配票單號!"); return; }
-    const resultEl = document.getElementById('sched-lookup-result');
-    resultEl.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> 查詢中...</div>';
+  // 近期配票單號清單:單號格式是 PC+日期+序號,依字串遞減排序就等於「最新建立的在最上面」,
+  // 不用另外查 created_at。點一列直接帶進下方查詢欄位並查詢。
+  loadRecentAllocOrders: async function() {
+    const el = document.getElementById('recent-alloc-orders-table');
+    const { data, error } = await supabaseClient.from('allocation_records')
+      .select('order_ref,activity_name,branch,scheduled_date,created_at')
+      .order('order_ref', { ascending: false })
+      .limit(1000);
+    if (error) { console.error(error); el.innerHTML = '讀取失敗'; return; }
 
-    const locNameById = {};
-    this.scheduleLocations.forEach(l => { locNameById[l.id] = l.name; });
+    const seen = new Map();
+    (data || []).forEach(r => { if (!seen.has(r.order_ref) && seen.size < 20) seen.set(r.order_ref, r); });
+    const orders = Array.from(seen.values());
 
-    const { data: rows, error } = await supabaseClient.from('schedule_stock').select('*').eq('order_ref', orderRef).order('id');
-    if (error) { console.error(error); resultEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 查詢失敗'; return; }
-    if (!rows || rows.length === 0) { resultEl.innerHTML = '查無此配票單號的資料。'; return; }
+    if (orders.length === 0) { el.innerHTML = '<p class="admin-note">目前沒有配票紀錄。</p>'; return; }
 
-    const hasPending = rows.some(r => !r.applied_at);
-    let html = '<table class="admin-table"><thead><tr><th>#</th><th>支局</th><th>活動地點</th><th>票號</th><th>品名</th><th class="text-center">數量</th><th>配票日期</th><th>狀態</th></tr></thead><tbody>';
-    rows.forEach((r, i) => {
-      const status = r.applied_at ? '<span class="text-primary">已套用</span>' : '<span class="text-danger">未套用</span>';
-      html += `<tr><td>${i+1}</td><td>${r.branch || ''}</td><td>${locNameById[r.location_id] || ''}</td><td>${r.ticket_id}</td><td>${r.product_name}</td><td align="center">${r.qty}</td><td>${r.scheduled_date}</td><td>${status}</td></tr>`;
-    });
-    html += '</tbody></table>';
-    if (hasPending) {
-      html += `<button class="admin-btn" style="margin-top: var(--sp-3);" onclick="AdminSystem.applyScheduleOrder('${orderRef}')"><i class="fa-solid fa-circle-check"></i> 套用補貨</button>`;
-    }
-    resultEl.innerHTML = html;
+    el.innerHTML = '<table class="admin-table"><thead><tr><th>單號</th><th>活動攤位</th><th>配發支局</th><th>配發日期</th><th>建立時間</th></tr></thead><tbody>' +
+      orders.map(o => `<tr style="cursor:pointer;" onclick="document.getElementById('alloc-lookup-ref').value='${o.order_ref}'; AdminSystem.lookupAllocationOrder();">
+        <td>${o.order_ref}</td><td>${o.activity_name || ''}</td><td>${o.branch || ''}</td><td>${o.scheduled_date}</td><td>${new Date(o.created_at).toLocaleString('zh-TW', { hour12: false })}</td>
+      </tr>`).join('') + '</tbody></table>';
   },
 
-  applyScheduleOrder: async function(orderRef) {
-    if (!confirm(`確定要套用配票單「${orderRef}」裡所有未套用的品項嗎?庫存將立即增加。`)) return;
-    const { data, error } = await supabaseClient.rpc('apply_schedule_stock_order', { p_order_ref: orderRef });
-    if (error) { console.error(error); alert("❌ 套用失敗,請重新整理頁面"); return; }
-    if (data.status === 'ERROR') { alert("❌ " + data.message); return; }
-
-    showToast(`<i class="fa-solid fa-circle-check"></i> 已套用 ${data.applied_count} 筆補貨`);
-    this.lookupScheduleOrder();
-    refreshProducts();
-  },
-
-  // allocation_records 現在由 allocation.html(配票單位專用頁面)寫入,這裡只查詢/選取。
+  // allocation_records 現在由 allocation.html(配票單位專用頁面)寫入,這裡只查詢/加入排程。
   allocationLookupRows: [],
 
   lookupAllocationOrder: async function() {
@@ -1958,65 +1941,66 @@ const AdminSystem = {
 
     const { data: rows, error } = await supabaseClient.from('allocation_records').select('*').eq('order_ref', orderRef).order('id');
     if (error) { console.error(error); resultEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 查詢失敗'; return; }
-    if (!rows || rows.length === 0) { resultEl.innerHTML = '查無此配票單號的資料,請確認是否已上傳配票紀錄。'; return; }
+    if (!rows || rows.length === 0) { resultEl.innerHTML = '查無此配票單號的資料,請確認配票單位是否已建立。'; return; }
 
     const { data: locs } = await supabaseClient.from('locations').select('id,name');
     const locIdByName = {};
     (locs || []).forEach(l => { locIdByName[l.name] = l.id; });
 
-    this.allocationLookupRows = rows; // 存起來給「加入排程補貨」用,不用重查一次
+    this.allocationLookupRows = rows; // 存起來給「加入排程」用,不用重查一次
 
-    let html = '<table class="admin-table"><thead><tr><th><input type="checkbox" onclick="AdminSystem.toggleAllAllocationChecks(this)"></th><th>活動地點</th><th>票號</th><th>品名</th><th class="text-center">數量</th><th>配票日期</th><th>狀態</th></tr></thead><tbody>';
+    // 整張單一次加入排程,不能分批追加,所以看任一列的 added_to_schedule_at 就知道整張單的狀態。
+    const alreadyAdded = rows.some(r => r.added_to_schedule_at);
+    const missingLocationRows = rows.filter(r => !locIdByName[r.activity_name]);
+
+    let html = '<table class="admin-table"><thead><tr><th>活動地點</th><th>票號</th><th>品名</th><th class="text-center">數量</th><th>配票日期</th><th>狀態</th></tr></thead><tbody>';
     rows.forEach(r => {
-      const locId = locIdByName[r.activity_name];
-      let statusCell, checkboxAttr;
-      if (r.added_to_schedule_at) {
-        statusCell = '<span class="text-primary">已加入</span>';
-        checkboxAttr = 'disabled';
-      } else if (!locId) {
-        statusCell = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> 找不到攤位「${r.activity_name || '(空白)'}」</span>`;
-        checkboxAttr = 'disabled';
-      } else {
-        statusCell = '<span class="text-sub">未加入</span>';
-        checkboxAttr = '';
-      }
-      html += `<tr><td><input type="checkbox" class="alloc-row-check" data-id="${r.id}" ${checkboxAttr}></td><td>${r.activity_name || ''}</td><td>${r.ticket_id}</td><td>${r.product_name || ''}</td><td align="center">${r.qty}</td><td>${r.scheduled_date}</td><td>${statusCell}</td></tr>`;
+      const locOk = !!locIdByName[r.activity_name];
+      let statusCell;
+      if (r.added_to_schedule_at) statusCell = '<span class="text-primary">已加入排程</span>';
+      else if (!locOk) statusCell = `<span class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> 找不到攤位「${r.activity_name || '(空白)'}」</span>`;
+      else statusCell = '<span class="text-sub">尚未加入</span>';
+      html += `<tr><td>${r.activity_name || ''}</td><td>${r.ticket_id}</td><td>${r.product_name || ''}</td><td align="center">${r.qty}</td><td>${r.scheduled_date}</td><td>${statusCell}</td></tr>`;
     });
     html += '</tbody></table>';
-    html += `<button class="admin-btn" style="margin-top: var(--sp-3);" onclick="AdminSystem.addSelectedAllocationsToSchedule()"><i class="fa-solid fa-plus"></i> 加入排程補貨</button>`;
+
+    if (alreadyAdded) {
+      html += '<p class="admin-note text-primary" style="margin-top: var(--sp-3);"><i class="fa-solid fa-circle-info"></i> 此配票單已經加入過排程,無法追加。如需補新的品項,請在配票頁面(allocation.html)建立新的配票單號。</p>';
+    } else if (missingLocationRows.length > 0) {
+      html += `<p class="admin-note text-danger" style="margin-top: var(--sp-3);"><i class="fa-solid fa-triangle-exclamation"></i> 有 ${missingLocationRows.length} 個品項找不到對應攤位,請先到「系統設定」新增攤位後再重新查詢,整張單才能一次加入排程。</p>`;
+    } else {
+      html += `<button class="admin-btn" style="margin-top: var(--sp-3);" onclick="AdminSystem.addOrderToSchedule()"><i class="fa-solid fa-plus"></i> 加入排程</button>`;
+    }
     resultEl.innerHTML = html;
   },
 
-  toggleAllAllocationChecks: function(masterCheckbox) {
-    document.querySelectorAll('.alloc-row-check:not(:disabled)').forEach(cb => cb.checked = masterCheckbox.checked);
-  },
-
-  addSelectedAllocationsToSchedule: async function() {
-    const checked = Array.from(document.querySelectorAll('.alloc-row-check:checked'));
-    if (checked.length === 0) { alert("請至少勾選一列!"); return; }
+  addOrderToSchedule: async function() {
+    const rows = this.allocationLookupRows;
+    if (!rows || rows.length === 0) return;
+    if (rows.some(r => r.added_to_schedule_at)) { alert("此配票單已經加入過排程!"); return; }
 
     const { data: locs } = await supabaseClient.from('locations').select('id,name');
     const locIdByName = {};
     (locs || []).forEach(l => { locIdByName[l.name] = l.id; });
 
-    const selectedIds = checked.map(cb => parseInt(cb.dataset.id));
-    const rowsToAdd = (this.allocationLookupRows || []).filter(r => selectedIds.includes(r.id));
+    if (rows.some(r => !locIdByName[r.activity_name])) { alert("有品項找不到對應攤位,無法加入!"); return; }
 
-    const scheduleRows = rowsToAdd.map(r => ({
+    const scheduleRows = rows.map(r => ({
       order_ref: r.order_ref, branch: r.branch, scheduled_date: r.scheduled_date,
       location_id: locIdByName[r.activity_name], ticket_id: r.ticket_id,
       product_name: r.product_name, qty: r.qty
     }));
 
     const { error: insertError } = await supabaseClient.from('schedule_stock').insert(scheduleRows);
-    if (insertError) { alert("❌ 加入排程補貨失敗:" + insertError.message); return; }
+    if (insertError) { alert("❌ 加入排程失敗:" + insertError.message); return; }
 
     const { error: updateError } = await supabaseClient.from('allocation_records')
-      .update({ added_to_schedule_at: new Date().toISOString() }).in('id', selectedIds);
+      .update({ added_to_schedule_at: new Date().toISOString() }).eq('order_ref', rows[0].order_ref);
     if (updateError) console.error(updateError); // 排程已經加進去了,這裡失敗只是狀態標記沒更新,不擋主要流程
 
-    showToast(`<i class="fa-solid fa-circle-check"></i> 已加入 ${scheduleRows.length} 筆到排程補貨`);
+    showToast(`<i class="fa-solid fa-circle-check"></i> 已加入 ${scheduleRows.length} 筆到排程,配票日期到了會自動套用補貨`);
     this.lookupAllocationOrder();
+    this.loadRecentAllocOrders();
   },
 
   // ==================== 模組 6:清點對帳匯出(進退庫誌,比對 allocation_records/records/return_records) ====================
