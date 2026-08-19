@@ -384,7 +384,13 @@
           <div class="admin-form-group"><label>系統顯示名稱</label><input type="text" id="admin-set-title" class="admin-input"></div>
           <div class="admin-form-group"><label>系統版本號</label><input type="text" id="admin-set-version" class="admin-input"></div>
           <div class="admin-form-group"><label>攤位重要公告</label><textarea id="admin-set-notice" class="admin-textarea"></textarea></div>
-          <div class="admin-form-group"><label>活動網址 / iframe</label><input type="text" id="admin-set-url" class="admin-input"></div>
+          <div class="admin-form-group">
+            <label>攤位活動公告(圖片或 PDF)</label>
+            <input type="hidden" id="admin-set-url">
+            <div id="admin-activity-preview" style="margin-bottom: var(--sp-2);"></div>
+            <input type="file" id="admin-activity-file" accept="image/*,application/pdf" class="admin-input" onchange="AdminSystem.uploadActivityFile(this)">
+            <div id="admin-activity-upload-status" class="text-sub" style="margin-top: var(--sp-1);"></div>
+          </div>
           <div class="admin-form-group"><label>報表接收 Email</label><input type="text" id="admin-set-email" class="admin-input"></div>
           <button class="admin-btn" id="admin-save-settings-btn" onclick="AdminSystem.saveSettings()"><i class="fa-solid fa-floppy-disk"></i> 儲存設定並同步</button>
         </div>
@@ -633,7 +639,18 @@
 
 <div id="activity-modal" class="modal-overlay" onclick="closeActivityModal(event)">
   <div class="modal-content">
-    <div class="modal-header"><span><i class="fa-solid fa-calendar-days"></i> 當前攤位活動詳情</span><span class="close-btn" onclick="document.getElementById('activity-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></span></div>
+    <div class="modal-header">
+      <span><i class="fa-solid fa-calendar-days"></i> 當前攤位活動詳情</span>
+      <div style="display:flex; align-items:center; gap: var(--sp-4);">
+        <span id="activity-zoom-controls" style="display:none; align-items:center; gap: var(--sp-2);">
+          <i class="fa-solid fa-magnifying-glass-minus" style="cursor:pointer;" title="縮小" onclick="activityZoomStep(-1)"></i>
+          <span id="activity-zoom-pct" style="font-size:var(--fs-sm); min-width:40px; text-align:center;">100%</span>
+          <i class="fa-solid fa-magnifying-glass-plus" style="cursor:pointer;" title="放大" onclick="activityZoomStep(1)"></i>
+        </span>
+        <a id="activity-newtab-btn" href="#" target="_blank" rel="noopener" style="display:none; color:white;" title="開新分頁檢視(可用瀏覽器縮放)"><i class="fa-solid fa-up-right-from-square"></i></a>
+        <span class="close-btn" onclick="document.getElementById('activity-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></span>
+      </div>
+    </div>
     <div class="modal-body" style="height:100%;" id="activity-modal-body">
       <div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容</p></div>
     </div>
@@ -914,14 +931,61 @@
   }
 
   function closeQrModal(e) { if (e.target.id === 'qr-modal') document.getElementById('qr-modal').style.display = 'none'; }
+  const ACTIVITY_ZOOM_STEPS = [100, 200, 300, 400];
+  let activityZoomPct = 100;
+
   function openActivityModal() {
     const body = document.getElementById('activity-modal-body');
-    body.innerHTML = activityUrl
-      ? `<iframe src="${activityUrl}" style="width:100%; height:100%; border:none;"></iframe>`
-      : '<div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容(請到系統後台設定)</p></div>';
+    const zoomControls = document.getElementById('activity-zoom-controls');
+    const newTabBtn = document.getElementById('activity-newtab-btn');
+    activityZoomPct = 100;
+
+    if (!activityUrl) {
+      body.innerHTML = '<div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容(請到系統後台設定)</p></div>';
+      zoomControls.style.display = 'none';
+      newTabBtn.style.display = 'none';
+    } else {
+      const isPdf = /\.pdf(\?|$)/i.test(activityUrl);
+      newTabBtn.href = activityUrl;
+      newTabBtn.style.display = 'inline-flex';
+      if (isPdf) {
+        // PDF 靠瀏覽器內建的檢視器縮放(工具列本身就有 +/-),不用自己做放大。
+        body.innerHTML = `<iframe src="${activityUrl}#toolbar=1" style="width:100%; height:100%; border:none;"></iframe>`;
+        zoomControls.style.display = 'none';
+      } else {
+        body.innerHTML = `<div style="width:100%; height:100%; overflow:auto; display:flex; align-items:center; justify-content:center; background:#1a1a1a;">
+            <img id="activity-img" src="${activityUrl}" style="max-width:100%; max-height:100%; cursor:zoom-in;" onclick="activityImgClick()">
+          </div>`;
+        zoomControls.style.display = 'inline-flex';
+        document.getElementById('activity-zoom-pct').textContent = '100%';
+      }
+    }
     document.getElementById('activity-modal').style.display = 'flex';
   }
   function closeActivityModal(e) { if (e.target.id === 'activity-modal') document.getElementById('activity-modal').style.display = 'none'; }
+
+  function setActivityZoom(pct) {
+    activityZoomPct = pct;
+    document.getElementById('activity-zoom-pct').textContent = pct + '%';
+    const img = document.getElementById('activity-img');
+    if (!img) return;
+    if (pct === 100) {
+      img.style.maxWidth = '100%'; img.style.maxHeight = '100%'; img.style.width = ''; img.style.cursor = 'zoom-in';
+    } else {
+      img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; img.style.width = pct + '%'; img.style.cursor = 'zoom-out';
+    }
+  }
+  function activityZoomStep(dir) {
+    let idx = ACTIVITY_ZOOM_STEPS.indexOf(activityZoomPct);
+    if (idx === -1) idx = 0;
+    idx = Math.min(ACTIVITY_ZOOM_STEPS.length - 1, Math.max(0, idx + dir));
+    setActivityZoom(ACTIVITY_ZOOM_STEPS[idx]);
+  }
+  function activityImgClick() {
+    const idx = ACTIVITY_ZOOM_STEPS.indexOf(activityZoomPct);
+    if (idx === -1 || idx === ACTIVITY_ZOOM_STEPS.length - 1) setActivityZoom(ACTIVITY_ZOOM_STEPS[0]);
+    else activityZoomStep(1);
+  }
 
   async function updateLastRecordPeek() {
     if (!myUser.branchName || !myUser.locationId) return;
@@ -1243,6 +1307,7 @@ const AdminSystem = {
 
   // ==================== 模組 1:設定管理(settings 表) ====================
   locationsData: [],
+  previousActivityUrl: '',
 
   loadSettings: async function() {
     const btn = document.getElementById('admin-save-settings-btn');
@@ -1255,10 +1320,79 @@ const AdminSystem = {
       document.getElementById('admin-set-notice').value = settings.notice || "";
       document.getElementById('admin-set-url').value = settings.activity_url || "";
       document.getElementById('admin-set-email').value = settings.email || "";
+      this.previousActivityUrl = settings.activity_url || '';
+      this.renderActivityPreview(settings.activity_url || '');
     }
 
     btn.innerHTML = "<i class='fa-solid fa-floppy-disk'></i> 儲存設定並同步";
     await AdminSystem.loadLocations();
+  },
+
+  // 活動公告檔案(圖片/PDF)存在 Supabase Storage 的 announcements bucket,
+  // settings.activity_url 只存 public URL,前端靠副檔名判斷是圖片還是 PDF。
+  renderActivityPreview: function(url) {
+    const box = document.getElementById('admin-activity-preview');
+    if (!url) { box.innerHTML = ''; return; }
+    const isPdf = /\.pdf(\?|$)/i.test(url);
+    box.innerHTML = isPdf
+      ? `<div style="display:flex; align-items:center; gap:var(--sp-3);">
+           <i class="fa-solid fa-file-pdf" style="color:#d32f2f; font-size:28px;"></i>
+           <a href="${url}" target="_blank" rel="noopener">預覽 PDF</a>
+           <button type="button" class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.removeActivityFile()">移除</button>
+         </div>`
+      : `<div style="display:flex; align-items:center; gap:var(--sp-3);">
+           <img src="${url}" style="height:70px; border-radius:var(--radius-sm); border:1px solid #cfd8dc; object-fit:cover;">
+           <button type="button" class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.removeActivityFile()">移除</button>
+         </div>`;
+  },
+
+  // 舊檔案盡量清掉,失敗也不擋流程(例如舊值本來就不是這個 bucket 的檔案)。
+  deleteActivityStorageFile: async function(url) {
+    if (!url) return;
+    const marker = '/storage/v1/object/public/announcements/';
+    const idx = url.indexOf(marker);
+    if (idx === -1) return;
+    const path = decodeURIComponent(url.slice(idx + marker.length));
+    await supabaseClient.storage.from('announcements').remove([path]);
+  },
+
+  uploadActivityFile: async function(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const status = document.getElementById('admin-activity-upload-status');
+    const isPdf = file.type === 'application/pdf';
+    const isImage = file.type.startsWith('image/');
+    if (!isPdf && !isImage) {
+      status.textContent = '❌ 只能上傳圖片或 PDF';
+      input.value = '';
+      return;
+    }
+
+    status.textContent = '上傳中...';
+    const ext = isPdf ? 'pdf' : (file.name.split('.').pop() || 'png');
+    const path = `activity/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabaseClient.storage.from('announcements').upload(path, file, { cacheControl: '3600', upsert: false });
+    input.value = '';
+    if (uploadError) {
+      status.textContent = '❌ 上傳失敗:' + uploadError.message;
+      return;
+    }
+
+    const { data } = supabaseClient.storage.from('announcements').getPublicUrl(path);
+    const oldUrl = document.getElementById('admin-set-url').value;
+    document.getElementById('admin-set-url').value = data.publicUrl;
+    this.renderActivityPreview(data.publicUrl);
+    status.textContent = '✅ 已上傳,記得按下方「儲存設定並同步」';
+    await this.deleteActivityStorageFile(oldUrl);
+  },
+
+  removeActivityFile: async function() {
+    const oldUrl = document.getElementById('admin-set-url').value;
+    document.getElementById('admin-set-url').value = '';
+    this.renderActivityPreview('');
+    document.getElementById('admin-activity-upload-status').textContent = '已移除,記得按下方「儲存設定並同步」';
+    await this.deleteActivityStorageFile(oldUrl);
   },
 
   saveSettings: async function() {
