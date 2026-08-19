@@ -90,6 +90,16 @@
 
     .stat-item { display: flex; justify-content: space-between; padding: var(--sp-2) 0; border-bottom: 1px dashed #cfd8dc; font-size: var(--fs-md); }
 
+    /* 匯入票券異動明細表用的 modal(照抄 index.html 的 admin-modal 視覺風格,這頁沒有共用 CSS 檔案) */
+    .admin-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 99999; align-items: center; justify-content: center; }
+    .admin-modal { background: #fff; width: 860px; max-width: 95%; max-height: 90vh; border-radius: var(--radius-md); box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
+    .admin-modal-header { background: #37474f; color: white; padding: var(--sp-4) var(--sp-5); font-weight: 600; font-size: var(--fs-lg); display: flex; justify-content: space-between; flex-shrink: 0; }
+    .admin-modal-body { padding: var(--sp-5); overflow-y: auto; flex: 1; }
+    .admin-modal-footer { padding: var(--sp-4) var(--sp-5); background: #f8f9fa; border-top: 1px solid #eee; text-align: right; flex-shrink: 0; display: flex; justify-content: flex-end; gap: var(--sp-2); }
+    .import-group-card { border: 1px solid #eceff1; border-radius: var(--radius-md); padding: var(--sp-3); margin-bottom: var(--sp-3); }
+    .import-group-card.is-duplicate { border-color: #ffca28; background: #fffdf5; }
+    .import-warn-box { background: #fff3e0; color: #e65100; border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); margin-top: var(--sp-2); }
+
     .main-layout { display: flex; gap: var(--sp-3); flex: 1; overflow: hidden; padding: var(--sp-3); }
     .left-section { flex: 0.3; background: var(--card-bg); border-radius: var(--radius-lg); box-shadow: var(--card-shadow); padding: var(--sp-4); overflow-y: auto; border: 1px solid white; }
     .right-section { flex: 1; display: flex; flex-direction: column; gap: var(--sp-3); overflow: hidden; }
@@ -178,6 +188,7 @@
             <option value="">- 選擇最近訂單快速載入(選填) -</option>
           </select>
           <button class="admin-btn admin-btn-outline" id="deleteOrderBtn" onclick="deleteCurrentOrder()" style="display:none; color:var(--danger); border-color:var(--danger); white-space:nowrap;"><i class="fa-solid fa-trash"></i> 刪除本單</button>
+          <button class="admin-btn admin-btn-outline" onclick="openImportModal()" style="white-space:nowrap;"><i class="fa-solid fa-file-import"></i> 匯入票券異動明細表</button>
         </div>
         <div class="admin-form-row" style="display:flex; gap: var(--sp-2);">
           <div style="flex:1;"><label class="text-sub" style="font-size: var(--fs-sm);">活動地點 *</label><select id="allocEvent" class="admin-select"><option value="">- 請選擇活動地點 -</option></select></div>
@@ -210,6 +221,40 @@
         <button class="admin-btn admin-btn-outline" onclick="openPrintDialog()" style="flex:1;"><i class="fa-solid fa-print"></i> 列印 A4 單據</button>
         <button class="admin-btn" id="saveBtn" onclick="saveToDB()" style="flex:2;"><i class="fa-solid fa-cloud-arrow-up"></i> 儲存至雲端資料庫</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="import-modal-overlay" class="admin-modal-overlay">
+  <div class="admin-modal">
+    <div class="admin-modal-header">
+      <span><i class="fa-solid fa-file-import"></i> 匯入票券異動明細表</span>
+      <span style="cursor:pointer;" onclick="closeImportModal()"><i class="fa-solid fa-xmark"></i></span>
+    </div>
+    <div class="admin-modal-body">
+      <div class="admin-form-row" style="display:flex; gap: var(--sp-2);">
+        <div style="flex:1;">
+          <label class="text-sub" style="font-size: var(--fs-sm);">活動地點 * <span class="info-tip" tabindex="0" data-tip="明細表本身沒有這個欄位,套用到這次匯入的所有品項。">ⓘ</span></label>
+          <select id="importEvent" class="admin-select"><option value="">- 請選擇活動地點 -</option></select>
+        </div>
+        <div style="flex:1;">
+          <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 * <span class="info-tip" tabindex="0" data-tip="明細表的「帳務日」只會留存當參考,不會拿來當配票日期——這裡選的日期才是排程補貨實際套用的日子。">ⓘ</span></label>
+          <input type="date" id="importDate">
+        </div>
+      </div>
+
+      <label class="text-sub" style="font-size: var(--fs-sm);">選擇票券異動明細表(.xlsx)</label>
+      <div style="display:flex; gap: var(--sp-2); align-items:center;">
+        <input type="file" id="importFileInput" accept=".xlsx" style="flex:1; margin:0;">
+        <button class="admin-btn admin-btn-sm" onclick="parseImportFile()"><i class="fa-solid fa-magnifying-glass"></i> 解析檔案</button>
+      </div>
+      <div id="importParseStatus" class="text-sub" style="font-size: var(--fs-sm); margin-top: var(--sp-2);"></div>
+
+      <div id="importPreview" style="margin-top: var(--sp-3);"></div>
+    </div>
+    <div class="admin-modal-footer">
+      <button class="admin-btn admin-btn-outline" onclick="closeImportModal()">取消</button>
+      <button class="admin-btn" id="confirmImportBtn" onclick="confirmImport()" disabled><i class="fa-solid fa-cloud-arrow-up"></i> 確認匯入</button>
     </div>
   </div>
 </div>
@@ -340,9 +385,9 @@
     }
   }
 
-  async function populateLocationSelect() {
+  async function populateLocationSelect(selectId = 'allocEvent') {
     const { data } = await supabaseClient.from('locations').select('id,name').order('sort_order');
-    document.getElementById('allocEvent').innerHTML = '<option value="">- 請選擇活動地點 -</option>' +
+    document.getElementById(selectId).innerHTML = '<option value="">- 請選擇活動地點 -</option>' +
       (data || []).map(l => `<option value="${l.name}">${l.name}</option>`).join('');
   }
 
@@ -704,6 +749,242 @@
 
     document.getElementById('printTemplate').innerHTML = html;
     window.print();
+  }
+
+  // ==================== 匯入票券異動明細表 ====================
+  // 高雄郵局內部系統匯出的原始異動明細(欄位:類別/票品/票號/帳務日/序號/收發單位/支出枚數...),
+  // 跟現有手動配票流程共用 masterProducts/branchesCache 查資料、共用 claim_allocation_order_ref
+  // 領號機制,差別只在來源是整批 Excel 而不是一筆一筆搜尋加入購物車。
+
+  let importGroups = [];          // 依「序號」分組,每組可能對應到一張新的配票單
+  let importUnmatchedMaster = []; // 查無主檔(master_products)的列
+  let importUnmatchedBranch = []; // 查無支局(branches)的列
+
+  function openImportModal() {
+    document.getElementById('import-modal-overlay').style.display = 'flex';
+    document.getElementById('importDate').valueAsDate = new Date();
+    populateLocationSelect('importEvent');
+    resetImportState();
+  }
+
+  function closeImportModal() {
+    document.getElementById('import-modal-overlay').style.display = 'none';
+    resetImportState();
+  }
+
+  function resetImportState() {
+    importGroups = [];
+    importUnmatchedMaster = [];
+    importUnmatchedBranch = [];
+    document.getElementById('importFileInput').value = '';
+    document.getElementById('importParseStatus').textContent = '';
+    document.getElementById('importPreview').innerHTML = '';
+    document.getElementById('confirmImportBtn').disabled = true;
+  }
+
+  // 類別(2碼)/票品(4碼)/票號(2碼)在來源檔如果被 Excel 當數字存,前導0會被吃掉,
+  // 補回去才能正確組成 8 碼 ticket_id 去比對主檔(跟收銀刷讀、商品維護帶入用同一套防呆邏輯)。
+  function padTicketCode(val, len) {
+    let s = String(val ?? '').trim();
+    if (/^\d+$/.test(s) && s.length < len) s = s.padStart(len, '0');
+    return s;
+  }
+
+  async function parseImportFile() {
+    const file = document.getElementById('importFileInput').files[0];
+    if (!file) { alert('請先選擇檔案!'); return; }
+
+    const statusEl = document.getElementById('importParseStatus');
+    document.getElementById('importPreview').innerHTML = '';
+    document.getElementById('confirmImportBtn').disabled = true;
+    statusEl.textContent = '解析中...';
+
+    let rows;
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = '❌ 檔案解析失敗:' + e.message;
+      return;
+    }
+    if (!rows || rows.length < 2) { statusEl.textContent = '❌ 檔案沒有資料列'; return; }
+
+    const header = rows[0].map(h => String(h).trim());
+    const col = {};
+    ['類別', '票品', '票號', '帳務日', '序號', '收發單位', '支出枚數'].forEach(name => { col[name] = header.indexOf(name); });
+    const missingCols = Object.keys(col).filter(k => col[k] === -1);
+    if (missingCols.length > 0) {
+      statusEl.textContent = `❌ 找不到欄位:${missingCols.join('、')},請確認上傳的是正確格式的票券異動明細表`;
+      return;
+    }
+
+    const groupsByKey = new Map();
+    const unmatchedMaster = [];
+    const unmatchedBranch = [];
+
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || r.length === 0) continue;
+
+      const qty = Number(r[col['支出枚數']]) || 0;
+      if (qty <= 0) continue; // 支出枚數 0 代表這筆沒有實際撥出,不是要配票的項目
+
+      const category = padTicketCode(r[col['類別']], 2);
+      const item = padTicketCode(r[col['票品']], 4);
+      const ticketNo = padTicketCode(r[col['票號']], 2);
+      const ticketId = (category + item + ticketNo).toUpperCase();
+      const seqNo = String(r[col['序號']] ?? '').trim();
+      const txnDate = String(r[col['帳務日']] ?? '').trim();
+      const branchCode = String(r[col['收發單位']] ?? '').trim();
+      if (!seqNo || !branchCode || !ticketId) continue;
+
+      const master = masterProducts.find(p => p.ticket_id === ticketId);
+      if (!master) { unmatchedMaster.push({ ticket_id: ticketId, qty }); continue; }
+
+      const branchInfo = branchesCache.find(b => b.code === branchCode);
+      if (!branchInfo) { unmatchedBranch.push({ code: branchCode, ticket_id: ticketId, qty }); continue; }
+
+      if (!groupsByKey.has(seqNo)) {
+        groupsByKey.set(seqNo, {
+          seqNo, txnDate, branch: `${branchInfo.code} ${branchInfo.name}`,
+          itemsMap: new Map(), isDuplicate: false, existingOrderRef: null, confirmed: false
+        });
+      }
+      const group = groupsByKey.get(seqNo);
+      if (group.itemsMap.has(ticketId)) {
+        // 同一序號同一票號出現兩列(例如分批撥出),直接加總數量,不要拆成兩列。
+        const existing = group.itemsMap.get(ticketId);
+        existing.qty += qty;
+        existing.total_amount = existing.qty * existing.unit_price;
+      } else {
+        const unitPrice = Number(master.total) || 0;
+        group.itemsMap.set(ticketId, { ticket_id: ticketId, product_name: master.name, unit_price: unitPrice, qty, total_amount: unitPrice * qty });
+      }
+    }
+
+    const groups = Array.from(groupsByKey.values());
+    if (groups.length === 0 && unmatchedMaster.length === 0 && unmatchedBranch.length === 0) {
+      statusEl.textContent = '沒有解析到任何有效列(支出枚數需大於0)。';
+      return;
+    }
+
+    // 重複匯入偵測:同一序號如果 allocation_records 已經有資料,代表這批可能已經匯入過。
+    // 一次查詢涵蓋所有序號,不要每組各查一次。
+    if (groups.length > 0) {
+      const { data: existingRows } = await supabaseClient.from('allocation_records')
+        .select('order_ref,source_seq_no').in('source_seq_no', groups.map(g => g.seqNo));
+      const existingBySeq = {};
+      (existingRows || []).forEach(r => { if (!existingBySeq[r.source_seq_no]) existingBySeq[r.source_seq_no] = r.order_ref; });
+      groups.forEach(g => {
+        if (existingBySeq[g.seqNo]) { g.isDuplicate = true; g.existingOrderRef = existingBySeq[g.seqNo]; }
+      });
+    }
+
+    importGroups = groups;
+    importUnmatchedMaster = unmatchedMaster;
+    importUnmatchedBranch = unmatchedBranch;
+
+    const totalItems = groups.reduce((s, g) => s + g.itemsMap.size, 0);
+    statusEl.textContent = `解析完成:共 ${groups.length} 組配票單、${totalItems} 個品項。`;
+    renderImportPreview();
+  }
+
+  function renderImportPreview() {
+    const box = document.getElementById('importPreview');
+    let html = '';
+
+    importGroups.forEach((g, gi) => {
+      const items = Array.from(g.itemsMap.values());
+      const totalQty = items.reduce((s, it) => s + it.qty, 0);
+      const totalAmt = items.reduce((s, it) => s + it.total_amount, 0);
+      html += `<div class="import-group-card ${g.isDuplicate ? 'is-duplicate' : ''}">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: var(--sp-2);">
+          <div><b>序號 ${g.seqNo}</b> · ${g.branch} · 帳務日 ${g.txnDate || '-'}</div>
+          <div class="text-sub" style="font-size: var(--fs-sm);">${items.length} 個品項,共 ${totalQty} 枚,$${totalAmt.toLocaleString()}</div>
+        </div>`;
+      if (g.isDuplicate) {
+        html += `<div class="import-warn-box"><i class="fa-solid fa-triangle-exclamation"></i> 此序號之前已經匯入過(配票單號 ${g.existingOrderRef}),再匯入會產生新的一張配票單。
+          <label style="display:inline-flex; align-items:center; gap:4px; margin-left: var(--sp-2); cursor:pointer;">
+            <input type="checkbox" onchange="importGroups[${gi}].confirmed = this.checked; updateConfirmImportBtn();"> 仍要匯入
+          </label>
+        </div>`;
+      }
+      html += `<table class="admin-table" style="margin-top: var(--sp-2);">
+          <thead><tr><th>票號</th><th>品名</th><th style="text-align:right;">單價</th><th style="text-align:center;">數量</th><th style="text-align:right;">總計</th></tr></thead>
+          <tbody>${items.map(it => `<tr><td>${it.ticket_id}</td><td>${it.product_name || ''}</td><td style="text-align:right;">$${it.unit_price.toLocaleString()}</td><td style="text-align:center;">${it.qty}</td><td style="text-align:right;">$${it.total_amount.toLocaleString()}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+    });
+
+    if (importUnmatchedMaster.length > 0) {
+      html += `<div class="import-warn-box"><i class="fa-solid fa-circle-exclamation"></i> 以下 ${importUnmatchedMaster.length} 列查無主檔資料,未匯入(請先到後台「匯入商品主檔」補齊):<br>` +
+        importUnmatchedMaster.map(r => `${r.ticket_id}(數量 ${r.qty})`).join('、') + '</div>';
+    }
+    if (importUnmatchedBranch.length > 0) {
+      html += `<div class="import-warn-box"><i class="fa-solid fa-circle-exclamation"></i> 以下 ${importUnmatchedBranch.length} 列查無對應支局,未匯入(請確認支局主檔):<br>` +
+        importUnmatchedBranch.map(r => `${r.code}(票號 ${r.ticket_id},數量 ${r.qty})`).join('、') + '</div>';
+    }
+
+    box.innerHTML = html || '<div class="text-sub">沒有可匯入的品項。</div>';
+    updateConfirmImportBtn();
+  }
+
+  function updateConfirmImportBtn() {
+    const hasValidGroup = importGroups.some(g => !g.isDuplicate || g.confirmed);
+    document.getElementById('confirmImportBtn').disabled = !hasValidGroup;
+  }
+
+  async function confirmImport() {
+    const activityName = document.getElementById('importEvent').value;
+    const date = document.getElementById('importDate').value;
+    if (!activityName) { alert('⚠️ 請選擇活動地點!'); return; }
+    if (!date) { alert('⚠️ 請填寫配票日期!'); return; }
+
+    const groupsToImport = importGroups.filter(g => !g.isDuplicate || g.confirmed);
+    if (groupsToImport.length === 0) { alert('⚠️ 沒有可匯入的配票單!'); return; }
+
+    const btn = document.getElementById('confirmImportBtn');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 匯入中..."; btn.disabled = true;
+
+    const results = [];
+    let failMsg = null;
+
+    for (const g of groupsToImport) {
+      const { data: orderRef, error: claimError } = await supabaseClient.rpc('claim_allocation_order_ref');
+      if (claimError) { failMsg = `序號 ${g.seqNo} 領取配票單號失敗:` + claimError.message; break; }
+
+      const items = Array.from(g.itemsMap.values());
+      const rows = items.map(it => ({
+        order_ref: orderRef, scheduled_date: date, activity_name: activityName, branch: g.branch,
+        ticket_id: it.ticket_id, product_name: it.product_name, qty: it.qty,
+        unit_price: it.unit_price, total_amount: it.total_amount,
+        source_seq_no: g.seqNo, source_txn_date: g.txnDate || null
+      }));
+      const { error } = await supabaseClient.from('allocation_records').insert(rows);
+      if (error) { failMsg = `序號 ${g.seqNo}(配票單號 ${orderRef} 已領取但寫入失敗):` + error.message; break; }
+
+      results.push({ seqNo: g.seqNo, orderRef, count: items.length });
+    }
+
+    btn.innerHTML = "<i class='fa-solid fa-cloud-arrow-up'></i> 確認匯入"; btn.disabled = false;
+
+    if (results.length > 0) {
+      await loadRecentOrders();
+      populateRecentOrdersSelect();
+    }
+
+    if (failMsg) {
+      alert(`❌ ${failMsg}\n(已成功匯入 ${results.length} 組)`);
+      if (results.length > 0) closeImportModal(); // 部分成功,關閉視窗避免對已成功的組重複操作;完全沒成功則留在原畫面讓使用者修正後重試
+      return;
+    }
+
+    const summary = results.map(r => `${r.orderRef}(序號${r.seqNo},${r.count}項)`).join('\n');
+    alert(`✅ 匯入完成,共建立 ${results.length} 張配票單:\n${summary}`);
+    closeImportModal();
   }
 </script>
 </body>

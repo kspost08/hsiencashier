@@ -119,6 +119,8 @@ create table if not exists allocation_records (
   unit_price numeric,
   total_amount numeric,
   added_to_schedule_at timestamptz,  -- 已勾選加入 schedule_stock 就寫入,避免重複加入
+  source_seq_no text,                -- 若是從「票券異動明細表」匯入,這是明細表的「序號」,匯入防呆用來源識別碼
+  source_txn_date text,              -- 明細表的「帳務日」(民國年字串),純參考,不驅動 scheduled_date
   created_at timestamptz default now(),
   unique (order_ref, ticket_id)
 );
@@ -145,6 +147,7 @@ create table if not exists return_records (
 
 create index if not exists idx_return_records_return_order on return_records(return_order_id);
 create index if not exists idx_return_records_branch on return_records(branch);
+create index if not exists idx_allocation_records_source_seq on allocation_records(source_seq_no);
 
 -- 配票單號集中領取用的每日計數器。只有 claim_allocation_order_ref() 這支
 -- SECURITY DEFINER function 會碰這張表,前端/其他呼叫端不會直接讀寫它。
