@@ -429,7 +429,7 @@
       <div id="admin-panel-products" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header"><h3><i class="fa-solid fa-upload"></i> 匯入商品主檔</h3></div>
-          <p class="admin-note">上傳票品主檔 Excel(可一次選多個檔案),會依「類別+票品+票號」組成票號寫入主檔;已存在的票號會跳過,不會覆蓋。</p>
+          <p class="admin-note">上傳票品主檔 Excel(可一次選多個檔案),會依「類別+票品+票號」組成票號寫入主檔;已存在的票號會覆蓋更新為這次上傳的資料。</p>
           <input type="file" id="master-upload-input" accept=".xlsx" multiple class="admin-input">
           <button class="admin-btn" id="master-upload-btn" onclick="AdminSystem.uploadMasterFiles()">上傳並匯入</button>
           <div id="master-upload-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
