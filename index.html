@@ -645,10 +645,10 @@
     <div class="modal-header">
       <span><i class="fa-solid fa-calendar-days"></i> 當前攤位活動詳情 <span id="activity-page-counter" class="text-sub" style="display:none; color:#cfd8dc; font-weight:400; font-size:var(--fs-sm);"></span></span>
       <div style="display:flex; align-items:center; gap: var(--sp-4);">
-        <span id="activity-zoom-controls" style="display:none; align-items:center; gap: var(--sp-2);">
-          <i class="fa-solid fa-magnifying-glass-minus" style="cursor:pointer;" title="縮小" onclick="activityZoomStep(-1)"></i>
+        <span id="activity-zoom-controls" style="display:none; align-items:center; gap: var(--sp-3);">
+          <span class="text-sub" style="color:#b0bec5; font-size:var(--fs-sm);"><i class="fa-solid fa-computer-mouse"></i> 左鍵點圖放大/縮小 · <i class="fa-solid fa-hand"></i> 右鍵拖曳移動</span>
+          <i class="fa-solid fa-magnifying-glass" style="cursor:pointer;" title="放大/縮小" onclick="activityZoomToggle()"></i>
           <span id="activity-zoom-pct" style="font-size:var(--fs-sm); min-width:40px; text-align:center;">100%</span>
-          <i class="fa-solid fa-magnifying-glass-plus" style="cursor:pointer;" title="放大" onclick="activityZoomStep(1)"></i>
         </span>
         <a id="activity-newtab-btn" href="#" target="_blank" rel="noopener" style="display:none; color:white;" title="開新分頁檢視(可用瀏覽器縮放)"><i class="fa-solid fa-up-right-from-square"></i></a>
         <span class="close-btn" onclick="document.getElementById('activity-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></span>
@@ -934,16 +934,16 @@
   }
 
   function closeQrModal(e) { if (e.target.id === 'qr-modal') document.getElementById('qr-modal').style.display = 'none'; }
-  // 縮放級距用 25% 為單位,比原本 100 跳一次 100% 更細緻,才不會一放大字就爆版。
-  const ACTIVITY_ZOOM_STEPS = [100, 125, 150, 175, 200, 250, 300];
+  // 只有兩段:100%(縮圖)/150%(放大)。原本做多級距反而要跟拖曳搶左鍵事件,
+  // 判斷「這是點擊還是拖曳」容易誤判;改成單一切換後,左鍵點擊固定=切換縮放,
+  // 平移改用右鍵拖曳(見下方 dragStart),兩種操作完全不衝突。
+  const ACTIVITY_ZOOM_LEVEL = 150;
   let activeActivityPage = null; // 目前操作中那一張圖的 {applyZoom, getPct} API,+/- 按鈕作用在它身上
 
   // 每張圖片各自管理自己的縮放/拖曳平移狀態,彼此獨立、互不影響。
-  // 點擊(未拖曳時)在級距內循環放大,拖曳(滑鼠或觸控)則平移已放大的圖片內容 —— 這是取代
-  // 「只能用捲軸移動,看不到全貌」的手型拖曳工具。
   function initActivityImagePanZoom(imgEl, wrapEl) {
     let pct = 100;
-    let dragging = false, moved = false, startX, startY, startLeft, startTop;
+    let dragging = false, startX, startY, startLeft, startTop;
 
     function applyZoom(newPct) {
       pct = newPct;
@@ -952,11 +952,22 @@
       }
       if (pct === 100) {
         imgEl.style.maxWidth = '100%'; imgEl.style.maxHeight = '100%'; imgEl.style.width = '';
+        // 沒放大時內容一定塞得下,置中排版好看又不影響捲動。
+        wrapEl.style.alignItems = 'center'; wrapEl.style.justifyContent = 'center';
         wrapEl.style.cursor = 'zoom-in';
         wrapEl.scrollLeft = 0; wrapEl.scrollTop = 0;
       } else {
         imgEl.style.maxWidth = 'none'; imgEl.style.maxHeight = 'none'; imgEl.style.width = pct + '%';
+        // 放大後改成從左上角起排,不能再用 flex 置中——因為 overflow:auto 的捲動位置不能是負值,
+        // 用置中排版的話,超出去的「上/左」那一半內容永遠捲不到、必然看不見。
+        // 改成起點排版後,先把捲動位置設到正中央模擬「一開始看起來也是置中」的畫面,
+        // 使用者仍可以往上/往左捲到 0,看到完整內容。
+        wrapEl.style.alignItems = 'flex-start'; wrapEl.style.justifyContent = 'flex-start';
         wrapEl.style.cursor = 'grab';
+        requestAnimationFrame(() => {
+          wrapEl.scrollLeft = (wrapEl.scrollWidth - wrapEl.clientWidth) / 2;
+          wrapEl.scrollTop = (wrapEl.scrollHeight - wrapEl.clientHeight) / 2;
+        });
       }
     }
     const api = { img: imgEl, applyZoom, getPct: () => pct };
@@ -965,49 +976,44 @@
       activeActivityPage = api;
       document.getElementById('activity-zoom-pct').textContent = pct + '%';
     }
-    function cycleZoom() {
-      const idx = ACTIVITY_ZOOM_STEPS.indexOf(pct);
-      applyZoom(idx === -1 || idx === ACTIVITY_ZOOM_STEPS.length - 1 ? ACTIVITY_ZOOM_STEPS[0] : ACTIVITY_ZOOM_STEPS[idx + 1]);
+    function toggleZoom() {
+      applyZoom(pct === 100 ? ACTIVITY_ZOOM_LEVEL : 100);
     }
 
     function dragStart(x, y) {
-      activate();
-      dragging = true; moved = false;
+      dragging = true;
       startX = x; startY = y; startLeft = wrapEl.scrollLeft; startTop = wrapEl.scrollTop;
+      wrapEl.style.cursor = 'grabbing';
     }
     function dragMove(x, y) {
-      if (!dragging || pct === 100) return; // 100% 沒有可平移的空間,留給 click 判斷放大就好
-      const dx = x - startX, dy = y - startY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-        moved = true;
-        wrapEl.style.cursor = 'grabbing';
-        wrapEl.scrollLeft = startLeft - dx; wrapEl.scrollTop = startTop - dy;
-      }
+      if (!dragging) return;
+      wrapEl.scrollLeft = startLeft - (x - startX);
+      wrapEl.scrollTop = startTop - (y - startY);
     }
     function dragEnd() {
       if (!dragging) return;
       dragging = false;
       wrapEl.style.cursor = pct === 100 ? 'zoom-in' : 'grab';
-      if (!moved) cycleZoom();
     }
 
-    imgEl.addEventListener('mousedown', e => { dragStart(e.pageX, e.pageY); e.preventDefault(); });
+    imgEl.addEventListener('click', () => { activate(); toggleZoom(); });
+    imgEl.addEventListener('contextmenu', e => e.preventDefault()); // 右鍵用來拖曳,不跳瀏覽器選單
+    imgEl.addEventListener('mousedown', e => {
+      activate();
+      if (e.button === 2) { dragStart(e.pageX, e.pageY); e.preventDefault(); }
+    });
     document.addEventListener('mousemove', e => dragMove(e.pageX, e.pageY));
     document.addEventListener('mouseup', dragEnd);
-    imgEl.addEventListener('touchstart', e => { const t = e.touches[0]; dragStart(t.pageX, t.pageY); }, { passive: true });
-    wrapEl.addEventListener('touchmove', e => { const t = e.touches[0]; dragMove(t.pageX, t.pageY); }, { passive: true });
-    wrapEl.addEventListener('touchend', dragEnd);
+    // 觸控裝置沒有右鍵,直接靠 wrap 本身 overflow:auto 的原生手指拖曳捲動就能平移,
+    // 不用另外寫手勢判斷;點一下(沒有明顯移動)瀏覽器會照樣補發 click 事件,一樣會切換縮放。
 
     applyZoom(100);
     return api;
   }
 
-  function activityZoomStep(dir) {
+  function activityZoomToggle() {
     if (!activeActivityPage) return;
-    let idx = ACTIVITY_ZOOM_STEPS.indexOf(activeActivityPage.getPct());
-    if (idx === -1) idx = 0;
-    idx = Math.min(ACTIVITY_ZOOM_STEPS.length - 1, Math.max(0, idx + dir));
-    activeActivityPage.applyZoom(ACTIVITY_ZOOM_STEPS[idx]);
+    activeActivityPage.applyZoom(activeActivityPage.getPct() === 100 ? ACTIVITY_ZOOM_LEVEL : 100);
   }
 
   // 換頁時同步「目前第幾張」的所有 UI:計數器、圓點、+/- 縮放作用對象、開新分頁連結。
