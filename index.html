@@ -344,7 +344,7 @@
           ・配票日:<span id="returnLblDate" class="text-bold"></span>
         </div>
         <input type="text" id="returnBarcodeInput" placeholder="請刷條碼 (或手動輸入請按 Enter)..." onkeypress="ReturnSystem.handleBarcodeEnter(event)">
-        <div id="returnScanMsg" class="text-sub" style="font-size:var(--fs-xs);">游標停在此處,刷讀條碼會自動加入並累加數量。</div>
+        <div id="returnScanMsg" class="text-sub" style="font-size:var(--fs-xs);">游標停在此處，刷讀條碼會自動加入並累加數量。</div>
       </div>
       <div style="flex:1; overflow-y:auto; padding:0 5px;">
         <table class="scan-table">
@@ -393,10 +393,10 @@
           <div class="admin-form-group"><label>系統版本號</label><input type="text" id="admin-set-version" class="admin-input"></div>
           <div class="admin-form-group"><label>攤位重要公告</label><textarea id="admin-set-notice" class="admin-textarea"></textarea></div>
           <div class="admin-form-group">
-            <label>攤位活動公告(圖片或 PDF,可上傳多份) <i class="fa-solid fa-circle-info" style="cursor:pointer; color:var(--primary);" title="說明" onclick="AdminSystem.toggleActivityInfo()"></i></label>
+            <label>攤位活動公告(圖片或 PDF，可上傳多份) <i class="fa-solid fa-circle-info" style="cursor:pointer; color:var(--primary);" title="說明" onclick="AdminSystem.toggleActivityInfo()"></i></label>
             <div id="admin-activity-info-panel" class="text-sub" style="display:none; margin-bottom:var(--sp-2); padding:var(--sp-2) var(--sp-3); background:#f5f7f8; border-radius:var(--radius-sm); line-height:1.6;">
-              僅接受 JPG / PNG / PDF。建議圖片寬度 1200px 以上,直式橫式皆可。單檔建議 5MB 以內,避免現場網路載入太慢。<br>
-              可一次選取多個檔案或分次上傳,會依上傳順序在客戶端橫向排列,可左右滑動切換。
+              僅接受 JPG / PNG / PDF。建議圖片寬度 1200px 以上，直式橫式皆可。單檔建議 5MB 以內，避免現場網路載入太慢。<br>
+              可一次選取多個檔案或分次上傳，會依上傳順序在客戶端橫向排列，可左右滑動切換。
             </div>
             <div id="admin-activity-preview" style="margin-bottom: var(--sp-2); display:flex; flex-wrap:wrap; gap: var(--sp-3);"></div>
             <input type="file" id="admin-activity-file" accept="image/*,application/pdf" multiple class="admin-input" onchange="AdminSystem.uploadActivityFiles(this)">
@@ -429,7 +429,7 @@
       <div id="admin-panel-products" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header"><h3><i class="fa-solid fa-upload"></i> 匯入商品主檔</h3></div>
-          <p class="admin-note">上傳票品主檔 Excel(可一次選多個檔案),會依「類別+票品+票號」組成票號寫入主檔;已存在的票號會覆蓋更新為這次上傳的資料。</p>
+          <p class="admin-note">上傳票品主檔 Excel(可一次選多個檔案)，會依「類別+票品+票號」組成票號寫入主檔;已存在的票號會覆蓋更新為這次上傳的資料。</p>
           <input type="file" id="master-upload-input" accept=".xlsx" multiple class="admin-input">
           <button class="admin-btn" id="master-upload-btn" onclick="AdminSystem.uploadMasterFiles()">上傳並匯入</button>
           <div id="master-upload-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
@@ -478,7 +478,7 @@
 
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-list-check"></i> 查詢配票單號並加入排程<span class="info-tip" tabindex="0" data-tip="配票日期到了,每天凌晨會自動套用補貨(pg_cron),這裡只負責把配票單「排進去」。同一張配票單只能整批加入一次,不能分批追加——如果之後要補新的品項,請在配票頁面建立新的配票單號。活動地點如果對不到現有攤位,需先到「系統設定」新增攤位才能加入。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-list-check"></i> 查詢配票單號並加入排程<span class="info-tip" tabindex="0" data-tip="配票日期到了，每天凌晨會自動套用補貨(pg_cron)，這裡只負責把配票單「排進去」。同一張配票單只能整批加入一次，不能分批追加——如果之後要補新的品項，請在配票頁面建立新的配票單號。活動地點如果對不到現有攤位，需先到「系統設定」新增攤位才能加入。">ⓘ</span></h3>
           </div>
           <div style="display:flex; gap: var(--sp-2);">
             <input type="text" id="alloc-lookup-ref" class="admin-input" placeholder="輸入配票單號" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') AdminSystem.lookupAllocationOrder()">
@@ -493,7 +493,7 @@
           <div class="admin-card-header">
             <h3><i class="fa-solid fa-box"></i> 清點對帳匯出<span class="info-tip" tabindex="0" data-tip="依配票單號比對「配票數量」對上「歸還數量」，吻合就是這張單的票品已全數歸還，有落差代表還有票品尚未歸還(可能已售出、遺失或尚未清點)。銷售紀錄本身沒有存配票單號，無法精準拆分到單一配票單，所以這裡不列售出欄位。">ⓘ</span></h3>
           </div>
-          <p class="admin-note">選擇配票單號後匯出 Excel,內容是該單所有票號的配票/歸還數量比對,以及是否吻合。STAFF 只能選自己支局的配票單,ADMIN 可以看全部支局。</p>
+          <p class="admin-note">選擇配票單號後匯出 Excel，內容是該單所有票號的配票/歸還數量比對，以及是否吻合。STAFF 只能選自己支局的配票單，ADMIN 可以看全部支局。</p>
           <div style="display:flex; gap: var(--sp-2); align-items:center; flex-wrap:wrap;">
             <select id="logs-branch-filter" class="admin-select" style="width:200px; margin:0; display:none;" onchange="AdminSystem.loadLogsOrderOptions()"></select>
             <select id="logs-order-ref" class="admin-select" style="flex:1; max-width:340px; margin:0;"><option value="">- 請選擇配票單號 -</option></select>
@@ -612,12 +612,12 @@
               <div class="admin-form-group"><label>製作費 (自動)</label><input type="text" id="admin-prod-fee" class="admin-input" disabled placeholder="-"></div>
             </div>
             <div class="admin-form-group">
-               <label class="text-danger">售價(主檔試算,唯讀)<span class="info-tip" tabindex="0" data-tip="此金額 = 主檔的 單價+郵票+製作費 加總試算,不可直接編輯。若金額有誤,請回「匯入商品主檔」重新上傳正確的主檔資料。"><i class="fa-solid fa-circle-info"></i></span></label>
+               <label class="text-danger">售價(主檔試算，唯讀)<span class="info-tip" tabindex="0" data-tip="此金額 = 主檔的 單價+郵票+製作費 加總試算，不可直接編輯。若金額有誤，請回「匯入商品主檔」重新上傳正確的主檔資料。"><i class="fa-solid fa-circle-info"></i></span></label>
                <input type="text" id="admin-prod-total" class="admin-input amount-danger" disabled placeholder="-">
             </div>
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
-              <label><i class="fa-solid fa-tag"></i> 前端顯示名稱 <span class="text-danger">*</span><span class="info-tip" tabindex="0" data-tip="這是實際會顯示在收銀刷讀、購物車、顧客顯示螢幕、銷售紀錄與報表中的名稱,可以自訂成比主檔品名更簡短好辨識的名字。"><i class="fa-solid fa-circle-info"></i></span></label>
+              <label><i class="fa-solid fa-tag"></i> 前端顯示名稱 <span class="text-danger">*</span><span class="info-tip" tabindex="0" data-tip="這是實際會顯示在收銀刷讀、購物車、顧客顯示螢幕、銷售紀錄與報表中的名稱，可以自訂成比主檔品名更簡短好辨識的名字。"><i class="fa-solid fa-circle-info"></i></span></label>
               <input type="text" id="admin-prod-display-name" class="admin-input" placeholder="例: 波波鴿好運郵票" autocomplete="off" oninput="this.dataset.auto=''">
             </div>
 
@@ -626,9 +626,9 @@
               <div id="admin-prod-stocks-container" style="background:#f5f5f5; padding:10px; border-radius:6px; margin-top:5px;"></div>
             </div>
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
-              <label><i class="fa-solid fa-wrench"></i> BOM 組合設定 (選填)<span class="info-tip" tabindex="0" data-tip="格式為「票號:數量,票號:數量」。例如組合包內含 1 張 08Y53652 與 2 張 08Y53653,就填「08Y53652:1,08Y53653:2」;要加第三種票券也可以,例如再加 1 張 08Y53654 就變成「08Y53652:1,08Y53653:2,08Y53654:1」。結帳時系統會依此比例同時扣除各票號的庫存。"><i class="fa-solid fa-circle-info"></i></span></label>
+              <label><i class="fa-solid fa-wrench"></i> BOM 組合設定 (選填)<span class="info-tip" tabindex="0" data-tip="格式為「票號:數量,票號:數量」。例如組合包內含 1 張 08Y53652 與 2 張 08Y53653，就填「08Y53652:1,08Y53653:2」;要加第三種票券也可以，例如再加 1 張 08Y53654 就變成「08Y53652:1,08Y53653:2,08Y53654:1」。結帳時系統會依此比例同時扣除各票號的庫存。"><i class="fa-solid fa-circle-info"></i></span></label>
               <input type="text" id="admin-prod-bom" class="admin-input" placeholder="例: 08Y53652:1,08Y53653:2">
-              <div class="section-sub-label" style="margin-top: var(--sp-1);">若為組合包才需填寫,用半形逗號隔開。</div>
+              <div class="section-sub-label" style="margin-top: var(--sp-1);">若為組合包才需填寫，用半形逗號隔開。</div>
             </div>
 
           </div>
@@ -837,7 +837,7 @@
         console.error(profileError);
         try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
         btn.innerHTML = "登入系統"; btn.disabled = false;
-        document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常,請聯絡管理員";
+        document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常，請聯絡管理員";
         return;
       }
 
@@ -1253,7 +1253,7 @@
     if (error) {
       // 連線/認證層級的失敗(不是庫存不足這種業務錯誤,那個會走下面 data.status === 'ERROR' 分支)
       console.error(error);
-      alert("❌ 存檔失敗,請重新整理頁面");
+      alert("❌ 存檔失敗，請重新整理頁面");
       return;
     }
 
@@ -1336,7 +1336,7 @@
     const count = orderRows.length;
     const total = orderRows.reduce((s, r) => s + Number(r.total || 0), 0);
     const msg = count > 0
-      ? `⚠️ 這筆訂單共 ${count} 項、金額 $${total.toLocaleString()},確定要整筆退庫嗎?庫存將退回原發售地點。`
+      ? `⚠️ 這筆訂單共 ${count} 項、金額 $${total.toLocaleString()}，確定要整筆退庫嗎?庫存將退回原發售地點。`
       : "⚠️ 警告:確定要刪除此筆資料?庫存將退回原發售地點。";
     if (!confirm(msg)) return;
 
@@ -1344,7 +1344,7 @@
 
     if (error) {
       console.error(error);
-      alert("❌ 退庫失敗,請重新整理頁面");
+      alert("❌ 退庫失敗，請重新整理頁面");
       return;
     }
     if (data.status === 'ERROR') {
@@ -1397,7 +1397,7 @@
 
     btn.innerHTML = "<i class='fa-solid fa-envelope'></i> 寄送 Excel"; btn.disabled = false;
 
-    if (error) { console.error(error); alert("❌ 寄送失敗,請重新整理頁面"); return; }
+    if (error) { console.error(error); alert("❌ 寄送失敗，請重新整理頁面"); return; }
     if (data.status === 'ERROR') { alert("❌ " + data.message); return; }
     showToast("<i class='fa-solid fa-circle-check'></i> 報表已寄出");
   }
@@ -1519,7 +1519,7 @@ const AdminSystem = {
     for (const file of files) {
       const isPdf = file.type === 'application/pdf';
       const isImage = file.type.startsWith('image/');
-      if (!isPdf && !isImage) { status.textContent = `❌ ${file.name} 不是圖片或 PDF,已略過`; continue; }
+      if (!isPdf && !isImage) { status.textContent = `❌ ${file.name} 不是圖片或 PDF，已略過`; continue; }
 
       status.textContent = `上傳中...(${file.name})`;
       const ext = isPdf ? 'pdf' : (file.name.split('.').pop() || 'png');
@@ -1535,13 +1535,13 @@ const AdminSystem = {
     }
 
     input.value = '';
-    status.textContent = '✅ 上傳完成,記得按下方「儲存設定並同步」';
+    status.textContent = '✅ 上傳完成，記得按下方「儲存設定並同步」';
   },
 
   removeActivityUrl: async function(index) {
     const [removed] = this.activityUrls.splice(index, 1);
     this.renderActivityPreview();
-    document.getElementById('admin-activity-upload-status').textContent = '已移除,記得按下方「儲存設定並同步」';
+    document.getElementById('admin-activity-upload-status').textContent = '已移除，記得按下方「儲存設定並同步」';
     await this.deleteActivityStorageFile(removed);
   },
 
@@ -1681,7 +1681,7 @@ const AdminSystem = {
         body: { action: 'create', account: data.account, password: data.password, branch: data.branch, role: data.role }
       });
       btn.innerHTML = "確認儲存"; btn.disabled = false;
-      if (error) { console.error(error); alert("❌ 儲存失敗,請重新整理頁面"); return; }
+      if (error) { console.error(error); alert("❌ 儲存失敗，請重新整理頁面"); return; }
       if (res.status === 'ERROR') { alert("❌ " + res.message); return; }
       AdminSystem.closeUserModal(); AdminSystem.loadUsers();
     } else {
@@ -1699,7 +1699,7 @@ const AdminSystem = {
     const { data: res, error } = await supabaseClient.functions.invoke('admin-users', {
       body: { action: 'reset_password', account: acc, password: pwd }
     });
-    if (error) { console.error(error); alert("❌ 重設失敗,請重新整理頁面"); return; }
+    if (error) { console.error(error); alert("❌ 重設失敗，請重新整理頁面"); return; }
     if (res.status === 'ERROR') { alert("❌ " + res.message); return; }
     alert(`✅ 已重設 [${acc}] 的密碼`);
   },
@@ -1710,7 +1710,7 @@ const AdminSystem = {
     const { data: res, error } = await supabaseClient.functions.invoke('admin-users', {
       body: { action: 'delete', account: acc }
     });
-    if (error) { console.error(error); alert("❌ 刪除失敗,請重新整理頁面"); AdminSystem.loadUsers(); return; }
+    if (error) { console.error(error); alert("❌ 刪除失敗，請重新整理頁面"); AdminSystem.loadUsers(); return; }
     if (res.status === 'ERROR') { alert("❌ " + res.message); AdminSystem.loadUsers(); return; }
     AdminSystem.loadUsers();
   },
@@ -1830,8 +1830,8 @@ const AdminSystem = {
 
     btn.innerHTML = "上傳並匯入"; btn.disabled = false;
     input.value = "";
-    resultEl.textContent = `處理了 ${fileCount} 個檔案,共 ${totalRows} 列;新增 ${newCount} 筆、覆蓋更新 ${updatedCount} 筆` +
-      (batchDuplicates > 0 ? `(上傳批次內有 ${batchDuplicates} 筆同票號重複,以最後一筆為準)` : '') + `;` +
+    resultEl.textContent = `處理了 ${fileCount} 個檔案，共 ${totalRows} 列;新增 ${newCount} 筆、覆蓋更新 ${updatedCount} 筆` +
+      (batchDuplicates > 0 ? `(上傳批次內有 ${batchDuplicates} 筆同票號重複，以最後一筆為準)` : '') + `;` +
       `${malformedRows} 列格式不符已略過。`;
   },
 
@@ -2072,7 +2072,7 @@ const AdminSystem = {
       const { error: stockError } = await supabaseClient.from('product_stock').upsert(stockRows, { onConflict: 'product_id,location_id' });
       if (stockError) {
         btn.innerHTML = "確認儲存"; btn.disabled = false;
-        alert("⚠️ 商品資料已儲存,但庫存寫入失敗:" + stockError.message);
+        alert("⚠️ 商品資料已儲存，但庫存寫入失敗:" + stockError.message);
         AdminSystem.closeProductModal(); AdminSystem.loadProducts();
         return;
       }
@@ -2084,7 +2084,7 @@ const AdminSystem = {
 
     if (action === 'ADD') {
       // 新增模式存完不關視窗,直接清空、游標回到票號欄位,方便連續新增很多筆商品。
-      showToast(`<i class="fa-solid fa-circle-check"></i> 已新增「${id}」,可繼續新增下一筆`);
+      showToast(`<i class="fa-solid fa-circle-check"></i> 已新增「${id}」，可繼續新增下一筆`);
       this.resetProductFormForAdd();
     } else {
       AdminSystem.closeProductModal();
@@ -2245,12 +2245,12 @@ const AdminSystem = {
     const count = orderRows.length;
     const total = orderRows.reduce((s, r) => s + Number(r.total || 0), 0);
     const msg = count > 0
-      ? `⚠️ 這筆訂單共 ${count} 項、金額 $${total.toLocaleString()},確定要整筆退庫嗎?庫存將退回原發售地點。`
+      ? `⚠️ 這筆訂單共 ${count} 項、金額 $${total.toLocaleString()}，確定要整筆退庫嗎?庫存將退回原發售地點。`
       : "⚠️ 警告:確定要刪除此筆資料?庫存將退回原發售地點。";
     if (!confirm(msg)) return;
 
     const { data, error } = await supabaseClient.rpc('refund_order', { p_order_id: orderId });
-    if (error) { console.error(error); alert("❌ 退庫失敗,請重新整理頁面"); return; }
+    if (error) { console.error(error); alert("❌ 退庫失敗，請重新整理頁面"); return; }
     if (data.status === 'ERROR') { alert("❌ " + data.message); return; }
 
     showToast("<i class='fa-solid fa-trash'></i> 已退庫");
@@ -2303,7 +2303,7 @@ const AdminSystem = {
 
     const { data: rows, error } = await supabaseClient.from('allocation_records').select('*').eq('order_ref', orderRef).order('id');
     if (error) { console.error(error); resultEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 查詢失敗'; return; }
-    if (!rows || rows.length === 0) { resultEl.innerHTML = '查無此配票單號的資料,請確認配票單位是否已建立。'; return; }
+    if (!rows || rows.length === 0) { resultEl.innerHTML = '查無此配票單號的資料，請確認配票單位是否已建立。'; return; }
 
     const { data: locs } = await supabaseClient.from('locations').select('id,name');
     const locIdByName = {};
@@ -2327,9 +2327,9 @@ const AdminSystem = {
     html += '</tbody></table>';
 
     if (alreadyAdded) {
-      html += '<p class="admin-note text-primary" style="margin-top: var(--sp-3);"><i class="fa-solid fa-circle-info"></i> 此配票單已經加入過排程,無法追加。如需補新的品項,請在配票頁面(allocation.html)建立新的配票單號。</p>';
+      html += '<p class="admin-note text-primary" style="margin-top: var(--sp-3);"><i class="fa-solid fa-circle-info"></i> 此配票單已經加入過排程，無法追加。如需補新的品項，請在配票頁面(allocation.html)建立新的配票單號。</p>';
     } else if (missingLocationRows.length > 0) {
-      html += `<p class="admin-note text-danger" style="margin-top: var(--sp-3);"><i class="fa-solid fa-triangle-exclamation"></i> 有 ${missingLocationRows.length} 個品項找不到對應攤位,請先到「系統設定」新增攤位後再重新查詢,整張單才能一次加入排程。</p>`;
+      html += `<p class="admin-note text-danger" style="margin-top: var(--sp-3);"><i class="fa-solid fa-triangle-exclamation"></i> 有 ${missingLocationRows.length} 個品項找不到對應攤位，請先到「系統設定」新增攤位後再重新查詢，整張單才能一次加入排程。</p>`;
     } else {
       html += `<button class="admin-btn" style="margin-top: var(--sp-3);" onclick="AdminSystem.addOrderToSchedule()"><i class="fa-solid fa-plus"></i> 加入排程</button>`;
     }
@@ -2345,7 +2345,7 @@ const AdminSystem = {
     const locIdByName = {};
     (locs || []).forEach(l => { locIdByName[l.name] = l.id; });
 
-    if (rows.some(r => !locIdByName[r.activity_name])) { alert("有品項找不到對應攤位,無法加入!"); return; }
+    if (rows.some(r => !locIdByName[r.activity_name])) { alert("有品項找不到對應攤位，無法加入!"); return; }
 
     const scheduleRows = rows.map(r => ({
       order_ref: r.order_ref, branch: r.branch, scheduled_date: r.scheduled_date,
@@ -2360,7 +2360,7 @@ const AdminSystem = {
       .update({ added_to_schedule_at: new Date().toISOString() }).eq('order_ref', rows[0].order_ref);
     if (updateError) console.error(updateError); // 排程已經加進去了,這裡失敗只是狀態標記沒更新,不擋主要流程
 
-    showToast(`<i class="fa-solid fa-circle-check"></i> 已加入 ${scheduleRows.length} 筆到排程,配票日期到了會自動套用補貨`);
+    showToast(`<i class="fa-solid fa-circle-check"></i> 已加入 ${scheduleRows.length} 筆到排程，配票日期到了會自動套用補貨`);
     this.lookupAllocationOrder();
     this.loadRecentAllocOrders();
   },
@@ -2424,7 +2424,7 @@ const AdminSystem = {
     if (allocRes.error || returnRes.error) {
       console.error(allocRes.error || returnRes.error);
       btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
-      alert("❌ 讀取資料失敗,請重新整理頁面");
+      alert("❌ 讀取資料失敗，請重新整理頁面");
       return;
     }
 
@@ -2471,7 +2471,7 @@ const AdminSystem = {
       let note;
       if (gap === 0) note = "吻合(全數歸還)";
       else if (gap > 0) { note = `尚有 ${gap} 件未歸還(可能已售出、遺失或尚未清點)`; mismatchCount++; }
-      else { note = `多出 ${-gap} 件(歸還超過配票量,請查核)`; mismatchCount++; }
+      else { note = `多出 ${-gap} 件(歸還超過配票量，請查核)`; mismatchCount++; }
       wsData.push([ticketId, row.product_name, row.unit_price, row.allocated, row.returned, gap, note]);
     });
 
@@ -2481,7 +2481,7 @@ const AdminSystem = {
     XLSX.writeFile(wb, `清點對帳_${orderRef}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 
     btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
-    resultEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已匯出,共 ${ticketIds.length} 種票號,其中 ${mismatchCount} 項有落差。`;
+    resultEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已匯出，共 ${ticketIds.length} 種票號，其中 ${mismatchCount} 項有落差。`;
   }
 
 };
@@ -2685,7 +2685,7 @@ const ReturnSystem = {
     let tQty = 0, tAmt = 0;
 
     tbody.innerHTML = this.cartItems.length === 0
-      ? '<tr><td colspan="7" class="text-sub text-center" style="padding:20px;">請先選擇左側配票單,然後開始刷讀條碼。</td></tr>'
+      ? '<tr><td colspan="7" class="text-sub text-center" style="padding:20px;">請先選擇左側配票單，然後開始刷讀條碼。</td></tr>'
       : this.cartItems.map((it, i) => {
           tQty += it.qty; tAmt += it.total_amount;
           return '<tr><td>' + (i + 1) + '</td><td>' + it.ticket_id + '</td><td>' + it.product_name + '</td>' +
@@ -2719,7 +2719,7 @@ const ReturnSystem = {
 
     if (error) {
       console.error(error);
-      alert('❌ 存檔失敗,請重新整理頁面');
+      alert('❌ 存檔失敗，請重新整理頁面');
       return;
     }
     if (data.status === 'ERROR') {
@@ -2727,7 +2727,7 @@ const ReturnSystem = {
       return;
     }
 
-    const stockNote = data.stock_updated ? '' : '\n⚠️ 找不到對應的活動地點庫存,這批票品的庫存沒有自動加回,請手動確認。';
+    const stockNote = data.stock_updated ? '' : '\n⚠️ 找不到對應的活動地點庫存，這批票品的庫存沒有自動加回，請手動確認。';
     alert(`✅ 歸票成功!\n系統已產生歸票單號:${data.return_order_id}${stockNote}`);
 
     this.cartItems = [];

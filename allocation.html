@@ -194,7 +194,7 @@
           <div style="flex:1;"><label class="text-sub" style="font-size: var(--fs-sm);">活動地點 *</label><select id="allocEvent" class="admin-select"><option value="">- 請選擇活動地點 -</option></select></div>
           <div style="flex:1;"><label class="text-sub" style="font-size: var(--fs-sm);">支局 *</label><select id="allocBranch" class="admin-select"><option value="">- 請選擇支局 -</option></select></div>
           <div style="flex:1;">
-            <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 *<span class="info-tip" tabindex="0" data-tip="這是活動當天要補上的配票數量,不是今天填單的日期。排程補貨會依這個日期在活動當天自動套用庫存。">ⓘ</span></label>
+            <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 *<span class="info-tip" tabindex="0" data-tip="這是活動當天要補上的配票數量，不是今天填單的日期。排程補貨會依這個日期在活動當天自動套用庫存。">ⓘ</span></label>
             <input type="date" id="allocDate">
             <div class="text-sub" style="font-size: var(--fs-xs); margin-top:-6px;">建立日期:<span id="createdDateLabel"></span></div>
           </div>
@@ -234,11 +234,11 @@
     <div class="admin-modal-body">
       <div class="admin-form-row" style="display:flex; gap: var(--sp-2);">
         <div style="flex:1;">
-          <label class="text-sub" style="font-size: var(--fs-sm);">活動地點 * <span class="info-tip" tabindex="0" data-tip="明細表本身沒有這個欄位,套用到這次匯入的所有品項。">ⓘ</span></label>
+          <label class="text-sub" style="font-size: var(--fs-sm);">活動地點 * <span class="info-tip" tabindex="0" data-tip="明細表本身沒有這個欄位，套用到這次匯入的所有品項。">ⓘ</span></label>
           <select id="importEvent" class="admin-select"><option value="">- 請選擇活動地點 -</option></select>
         </div>
         <div style="flex:1;">
-          <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 * <span class="info-tip" tabindex="0" data-tip="明細表的「帳務日」只會留存當參考,不會拿來當配票日期——這裡選的日期才是排程補貨實際套用的日子。">ⓘ</span></label>
+          <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 * <span class="info-tip" tabindex="0" data-tip="明細表的「帳務日」只會留存當參考，不會拿來當配票日期——這裡選的日期才是排程補貨實際套用的日子。">ⓘ</span></label>
           <input type="date" id="importDate">
         </div>
       </div>
@@ -329,7 +329,7 @@
     if (profileError || !profile) {
       console.error(profileError);
       try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
-      document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常,請聯絡管理員";
+      document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常，請聯絡管理員";
       return;
     }
     if (profile.role !== 'ADMIN' && profile.role !== 'ALLOC') {
@@ -622,7 +622,7 @@
     let tQty = 0, tAmt = 0, tRed = 0, tFee = 0;
 
     tbody.innerHTML = cartItems.length === 0
-      ? '<tr><td colspan="7" class="text-sub" style="text-align:center; padding:20px;">清單是空的,請從左側搜尋並加入商品。</td></tr>'
+      ? '<tr><td colspan="7" class="text-sub" style="text-align:center; padding:20px;">清單是空的，請從左側搜尋並加入商品。</td></tr>'
       : cartItems.map((it, i) => {
           tQty += it.qty; tAmt += it.total_price; tRed += it.reduction_val; tFee += it.total_fee;
           return `<tr>
@@ -706,7 +706,7 @@
   }
 
   function openPrintDialog() {
-    if (cartItems.length === 0) { alert('配票清單是空的,無法列印!'); return; }
+    if (cartItems.length === 0) { alert('配票清單是空的，無法列印!'); return; }
     const branch = document.getElementById('allocBranch').value || '';
     const event = document.getElementById('allocEvent').value || '未命名活動';
     const date = document.getElementById('allocDate').value || '';
@@ -744,7 +744,7 @@
           <div class="print-sign"><div><b>出納科票券股:</b>___________________</div><div><b>接收支局:</b>___________________</div></div>`;
       }
 
-      html += `<div class="print-footer">第 ${p} 頁,共 ${totalPages} 頁</div></div>`;
+      html += `<div class="print-footer">第 ${p} 頁，共 ${totalPages} 頁</div></div>`;
     }
 
     document.getElementById('printTemplate').innerHTML = html;
@@ -817,7 +817,7 @@
     ['類別', '票品', '票號', '帳務日', '序號', '收發單位', '支出枚數'].forEach(name => { col[name] = header.indexOf(name); });
     const missingCols = Object.keys(col).filter(k => col[k] === -1);
     if (missingCols.length > 0) {
-      statusEl.textContent = `❌ 找不到欄位:${missingCols.join('、')},請確認上傳的是正確格式的票券異動明細表`;
+      statusEl.textContent = `❌ 找不到欄位:${missingCols.join('、')}，請確認上傳的是正確格式的票券異動明細表`;
       return;
     }
 
@@ -903,10 +903,10 @@
       html += `<div class="import-group-card ${g.isDuplicate ? 'is-duplicate' : ''}">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: var(--sp-2);">
           <div><b>序號 ${g.seqNo}</b> · ${g.branch} · 帳務日 ${g.txnDate || '-'}</div>
-          <div class="text-sub" style="font-size: var(--fs-sm);">${items.length} 個品項,共 ${totalQty} 枚,$${totalAmt.toLocaleString()}</div>
+          <div class="text-sub" style="font-size: var(--fs-sm);">${items.length} 個品項，共 ${totalQty} 枚，$${totalAmt.toLocaleString()}</div>
         </div>`;
       if (g.isDuplicate) {
-        html += `<div class="import-warn-box"><i class="fa-solid fa-triangle-exclamation"></i> 此序號之前已經匯入過(配票單號 ${g.existingOrderRef}),再匯入會產生新的一張配票單。
+        html += `<div class="import-warn-box"><i class="fa-solid fa-triangle-exclamation"></i> 此序號之前已經匯入過(配票單號 ${g.existingOrderRef})，再匯入會產生新的一張配票單。
           <label style="display:inline-flex; align-items:center; gap:4px; margin-left: var(--sp-2); cursor:pointer;">
             <input type="checkbox" onchange="importGroups[${gi}].confirmed = this.checked; updateConfirmImportBtn();"> 仍要匯入
           </label>
@@ -920,12 +920,12 @@
     });
 
     if (importUnmatchedMaster.length > 0) {
-      html += `<div class="import-warn-box"><i class="fa-solid fa-circle-exclamation"></i> 以下 ${importUnmatchedMaster.length} 列查無主檔資料,未匯入(請先到後台「匯入商品主檔」補齊):<br>` +
+      html += `<div class="import-warn-box"><i class="fa-solid fa-circle-exclamation"></i> 以下 ${importUnmatchedMaster.length} 列查無主檔資料，未匯入(請先到後台「匯入商品主檔」補齊):<br>` +
         importUnmatchedMaster.map(r => `${r.ticket_id}(數量 ${r.qty})`).join('、') + '</div>';
     }
     if (importUnmatchedBranch.length > 0) {
-      html += `<div class="import-warn-box"><i class="fa-solid fa-circle-exclamation"></i> 以下 ${importUnmatchedBranch.length} 列查無對應支局,未匯入(請確認支局主檔):<br>` +
-        importUnmatchedBranch.map(r => `${r.code}(票號 ${r.ticket_id},數量 ${r.qty})`).join('、') + '</div>';
+      html += `<div class="import-warn-box"><i class="fa-solid fa-circle-exclamation"></i> 以下 ${importUnmatchedBranch.length} 列查無對應支局，未匯入(請確認支局主檔):<br>` +
+        importUnmatchedBranch.map(r => `${r.code}(票號 ${r.ticket_id}，數量 ${r.qty})`).join('、') + '</div>';
     }
 
     box.innerHTML = html || '<div class="text-sub">沒有可匯入的品項。</div>';
@@ -982,8 +982,8 @@
       return;
     }
 
-    const summary = results.map(r => `${r.orderRef}(序號${r.seqNo},${r.count}項)`).join('\n');
-    alert(`✅ 匯入完成,共建立 ${results.length} 張配票單:\n${summary}`);
+    const summary = results.map(r => `${r.orderRef}(序號${r.seqNo}，${r.count}項)`).join('\n');
+    alert(`✅ 匯入完成，共建立 ${results.length} 張配票單:\n${summary}`);
     closeImportModal();
   }
 </script>
