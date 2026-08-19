@@ -194,6 +194,14 @@
     .admin-btn-outline { background: transparent; color: var(--primary); border: 1px solid #cfd8dc; }
     .admin-btn-outline:hover { background: #eceff1; color: #263238; border-color: #90a4ae; }
 
+    .toggle-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-switch .slider { position: absolute; inset: 0; background: #cfd8dc; border-radius: 22px; cursor: pointer; transition: 0.2s; }
+    .toggle-switch .slider::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+    .toggle-switch input:checked + .slider { background: var(--admin-color); }
+    .toggle-switch input:checked + .slider::before { transform: translateX(18px); }
+    .toggle-switch-label { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--primary); cursor: pointer; }
+
     .admin-table { width: 100%; border-collapse: collapse; font-size: var(--fs-base); }
     .admin-table th { background: #eceff1; color: #455a64; padding: var(--sp-3); text-align: left; border-bottom: 2px solid #cfd8dc; position: sticky; top: 0; z-index: 2; }
     .admin-table td { padding: var(--sp-3); border-bottom: 1px solid #eee; color: #333; }
@@ -430,7 +438,13 @@
         <div class="admin-card">
           <div class="admin-card-header">
             <h3><i class="fa-solid fa-tag"></i> 商品與初始庫存維護</h3>
-            <button class="admin-btn admin-btn-sm" onclick="AdminSystem.openProductModal()">+ 新增商品</button>
+            <div style="display:flex; align-items:center; gap: var(--sp-4);">
+              <label class="toggle-switch-label">
+                <span class="toggle-switch"><input type="checkbox" id="admin-show-stock-cols" onchange="AdminSystem.toggleStockColumns(this.checked)"><span class="slider"></span></span>
+                顯示各攤位庫存
+              </label>
+              <button class="admin-btn admin-btn-sm" onclick="AdminSystem.openProductModal()">+ 新增商品</button>
+            </div>
           </div>
           <div id="admin-products-table-container">載入中...</div>
         </div>
@@ -1841,16 +1855,31 @@ const AdminSystem = {
     this.renderProductsTable();
   },
 
+  showStockColumns: false,
+
+  // 開關「顯示各攤位庫存」不用重打 API,庫存資料在 loadProducts 已經整包撈回來放在
+  // 每個 product 的 .stocks 裡了(見上面 loadProducts),純粹只是切換要不要多畫幾欄。
+  toggleStockColumns: function(checked) {
+    this.showStockColumns = checked;
+    this.renderProductsTable();
+  },
+
   renderProductsTable: function() {
     if (this.productsData.length === 0) { document.getElementById('admin-products-table-container').innerHTML = "無商品資料。"; return; }
-    let html = '<table class="admin-table"><thead><tr><th>票號</th><th>品名</th><th>售價</th><th>BOM</th><th>操作</th></tr></thead><tbody>';
+    const showStock = this.showStockColumns;
+    const stockHeaders = showStock ? this.productLocations.map(loc => `<th>${loc.name}</th>`).join('') : '';
+    let html = `<table class="admin-table"><thead><tr><th>票號</th><th>品名</th><th>售價</th><th>BOM</th>${stockHeaders}<th>操作</th></tr></thead><tbody>`;
     this.productsData.forEach((p, i) => {
       let bomBadge = p.bom ? `<span class="badge-bundle">組合包</span>` : '';
+      const stockCells = showStock
+        ? this.productLocations.map(loc => `<td>${p.stocks[loc.id] ?? 0}</td>`).join('')
+        : '';
       html += `<tr>
         <td><b>${p.id}</b></td>
         <td>${p.name}</td>
         <td class="amount-danger">$${p.total}</td>
         <td>${bomBadge}</td>
+        ${stockCells}
         <td>
           <button class="admin-btn-sm admin-btn-outline" onclick="AdminSystem.openProductModal(${i})" style="margin-right: var(--sp-1);"><i class="fa-solid fa-pen"></i> 編輯</button>
           <button class="admin-btn-sm admin-btn-danger" onclick="AdminSystem.deleteProduct('${p.id}')"><i class="fa-solid fa-trash"></i> 刪除</button>
