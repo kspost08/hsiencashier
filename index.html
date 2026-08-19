@@ -71,6 +71,15 @@
       content:''; position:absolute; left:50%; bottom:100%; transform:translateX(-50%);
       border:5px solid transparent; border-top-color:#37474f; z-index:50;
     }
+    /* 卡片標題(h3)上的說明圖示離頁面頂端太近,提示框往上彈常常被截掉看不到開頭
+       (例如「清點對帳匯出」那個),這個 modifier 改成往下彈,底下卡片內容有的是空間。 */
+    .info-tip-down:hover::after, .info-tip-down:focus::after {
+      bottom:auto; top:135%;
+    }
+    .info-tip-down:hover::before, .info-tip-down:focus::before {
+      bottom:auto; top:100%;
+      border-top-color:transparent; border-bottom-color:#37474f;
+    }
 
     /* Font Awesome icon 跟後面接的文字之間留一點空隙;純圖示按鈕(如關閉的 ✕)多一點右邊留白無影響 */
     .fa-solid { margin-right: 6px; }
@@ -453,7 +462,7 @@
       <div id="admin-panel-records" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-receipt"></i> 全支局銷售總覽<span class="info-tip" tabindex="0" data-tip="這裡可以查看所有支局、所有攤位的銷售紀錄。主畫面「銷售紀錄」頁面只會顯示登入帳號所屬支局的資料。"><i class="fa-solid fa-circle-info"></i></span></h3>
+            <h3><i class="fa-solid fa-receipt"></i> 全支局銷售總覽<span class="info-tip info-tip-down" tabindex="0" data-tip="這裡可以查看所有支局、所有攤位的銷售紀錄。主畫面「銷售紀錄」頁面只會顯示登入帳號所屬支局的資料。"><i class="fa-solid fa-circle-info"></i></span></h3>
           </div>
           <div style="display:flex; gap: var(--sp-2); align-items:center; flex-wrap:wrap; margin-bottom: var(--sp-3);">
             <input type="text" id="admin-rec-keyword" class="admin-input" placeholder="🔍 品名/票號" style="flex:1.5; min-width:150px; margin:0;">
@@ -471,14 +480,14 @@
       <div id="admin-panel-schedule" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-clock-rotate-left"></i> 近期配票單號<span class="info-tip" tabindex="0" data-tip="配票單號由配票單位在專用頁面(allocation.html)建立。點一列可以直接帶入下方查詢。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> 近期配票單號<span class="info-tip info-tip-down" tabindex="0" data-tip="配票單號由配票單位在專用頁面(allocation.html)建立。點一列可以直接帶入下方查詢。">ⓘ</span></h3>
           </div>
           <div id="recent-alloc-orders-table" style="max-height:240px; overflow-y:auto;">載入中...</div>
         </div>
 
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-list-check"></i> 查詢配票單號並加入排程<span class="info-tip" tabindex="0" data-tip="配票日期到了，每天凌晨會自動套用補貨(pg_cron)，這裡只負責把配票單「排進去」。同一張配票單只能整批加入一次，不能分批追加——如果之後要補新的品項，請在配票頁面建立新的配票單號。活動地點如果對不到現有攤位，需先到「系統設定」新增攤位才能加入。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-list-check"></i> 查詢配票單號並加入排程<span class="info-tip info-tip-down" tabindex="0" data-tip="配票日期到了，每天凌晨會自動套用補貨(pg_cron)，這裡只負責把配票單「排進去」。同一張配票單只能整批加入一次，不能分批追加——如果之後要補新的品項，請在配票頁面建立新的配票單號。活動地點如果對不到現有攤位，需先到「系統設定」新增攤位才能加入。">ⓘ</span></h3>
           </div>
           <div style="display:flex; gap: var(--sp-2);">
             <input type="text" id="alloc-lookup-ref" class="admin-input" placeholder="輸入配票單號" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') AdminSystem.lookupAllocationOrder()">
@@ -491,7 +500,7 @@
       <div id="admin-panel-logs" class="admin-panel">
         <div class="admin-card">
           <div class="admin-card-header">
-            <h3><i class="fa-solid fa-box"></i> 清點對帳匯出<span class="info-tip" tabindex="0" data-tip="依配票單號比對「配票數量」對上「歸還數量」，吻合就是這張單的票品已全數歸還，有落差代表還有票品尚未歸還(可能已售出、遺失或尚未清點)。銷售紀錄本身沒有存配票單號，無法精準拆分到單一配票單，所以這裡不列售出欄位。">ⓘ</span></h3>
+            <h3><i class="fa-solid fa-box"></i> 清點對帳匯出<span class="info-tip info-tip-down" tabindex="0" data-tip="依配票單號比對「配票數量」對上「歸還數量」，吻合就是這張單的票品已全數歸還，有落差代表還有票品尚未歸還(可能已售出、遺失或尚未清點)。銷售紀錄本身沒有存配票單號，無法精準拆分到單一配票單，所以這裡不列售出欄位。">ⓘ</span></h3>
           </div>
           <p class="admin-note">選擇配票單號後匯出 Excel，內容是該單所有票號的配票/歸還數量比對，以及是否吻合。STAFF 只能選自己支局的配票單，ADMIN 可以看全部支局。</p>
           <div style="display:flex; gap: var(--sp-2); align-items:center; flex-wrap:wrap;">

@@ -53,6 +53,14 @@
       content:''; position:absolute; left:50%; bottom:100%; transform:translateX(-50%);
       border:5px solid transparent; border-top-color:#37474f; z-index:50;
     }
+    /* 離頁面/卡片頂端太近的說明圖示,提示框往上彈會被截掉,改成往下彈。 */
+    .info-tip-down:hover::after, .info-tip-down:focus::after {
+      bottom:auto; top:135%;
+    }
+    .info-tip-down:hover::before, .info-tip-down:focus::before {
+      bottom:auto; top:100%;
+      border-top-color:transparent; border-bottom-color:#37474f;
+    }
 
     input[type="text"], input[type="password"], input[type="date"], input[type="number"], select { width: 100%; padding: var(--sp-3); border: 2px solid #eceff1; border-radius: var(--radius-md); margin-bottom: var(--sp-2); background: #fafafa; font-size: var(--fs-base); font-family: inherit; }
 
@@ -194,7 +202,7 @@
           <div style="flex:1;"><label class="text-sub" style="font-size: var(--fs-sm);">活動地點 *</label><select id="allocEvent" class="admin-select"><option value="">- 請選擇活動地點 -</option></select></div>
           <div style="flex:1;"><label class="text-sub" style="font-size: var(--fs-sm);">支局 *</label><select id="allocBranch" class="admin-select"><option value="">- 請選擇支局 -</option></select></div>
           <div style="flex:1;">
-            <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 *<span class="info-tip" tabindex="0" data-tip="這是活動當天要補上的配票數量，不是今天填單的日期。排程補貨會依這個日期在活動當天自動套用庫存。">ⓘ</span></label>
+            <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 *<span class="info-tip info-tip-down" tabindex="0" data-tip="這是活動當天要補上的配票數量，不是今天填單的日期。排程補貨會依這個日期在活動當天自動套用庫存。">ⓘ</span></label>
             <input type="date" id="allocDate">
             <div class="text-sub" style="font-size: var(--fs-xs); margin-top:-6px;">建立日期:<span id="createdDateLabel"></span></div>
           </div>
@@ -234,11 +242,11 @@
     <div class="admin-modal-body">
       <div class="admin-form-row" style="display:flex; gap: var(--sp-2);">
         <div style="flex:1;">
-          <label class="text-sub" style="font-size: var(--fs-sm);">活動地點 * <span class="info-tip" tabindex="0" data-tip="明細表本身沒有這個欄位，套用到這次匯入的所有品項。">ⓘ</span></label>
+          <label class="text-sub" style="font-size: var(--fs-sm);">活動地點 * <span class="info-tip info-tip-down" tabindex="0" data-tip="明細表本身沒有這個欄位，套用到這次匯入的所有品項。">ⓘ</span></label>
           <select id="importEvent" class="admin-select"><option value="">- 請選擇活動地點 -</option></select>
         </div>
         <div style="flex:1;">
-          <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 * <span class="info-tip" tabindex="0" data-tip="明細表的「帳務日」只會留存當參考，不會拿來當配票日期——這裡選的日期才是排程補貨實際套用的日子。">ⓘ</span></label>
+          <label class="text-sub" style="font-size: var(--fs-sm);">配票日期 * <span class="info-tip info-tip-down" tabindex="0" data-tip="明細表的「帳務日」只會留存當參考，不會拿來當配票日期——這裡選的日期才是排程補貨實際套用的日子。">ⓘ</span></label>
           <input type="date" id="importDate">
         </div>
       </div>
