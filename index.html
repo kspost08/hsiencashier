@@ -582,7 +582,7 @@
               <div class="admin-form-group" style="flex:1">
                 <label>票號 (ID) <span class="text-danger">*</span></label>
                 <div style="display:flex; gap:5px;">
-                  <input type="text" id="admin-prod-id" class="admin-input" placeholder="例: A001" oninput="AdminSystem.onProdIdInput(this)" onkeydown="if(event.key==='Enter') AdminSystem.fetchMasterInfo()">
+                  <input type="text" id="admin-prod-id" class="admin-input" placeholder="例: A001" autocomplete="off" oninput="AdminSystem.onProdIdInput(this)" onkeydown="if(event.key==='Enter') AdminSystem.fetchMasterInfo()">
                   <button class="admin-btn admin-btn-sm" id="admin-prod-fetch-btn" onclick="AdminSystem.fetchMasterInfo()" style="padding:0 10px; background:#0288d1;"><i class="fa-solid fa-magnifying-glass"></i> 帶入</button>
                 </div>
               </div>
@@ -604,7 +604,7 @@
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
               <label><i class="fa-solid fa-tag"></i> 前端顯示名稱 <span class="text-danger">*</span><span class="info-tip" tabindex="0" data-tip="這是實際會顯示在收銀刷讀、購物車、顧客顯示螢幕、銷售紀錄與報表中的名稱,可以自訂成比主檔品名更簡短好辨識的名字。"><i class="fa-solid fa-circle-info"></i></span></label>
-              <input type="text" id="admin-prod-display-name" class="admin-input" placeholder="例: 波波鴿好運郵票" oninput="this.dataset.auto=''">
+              <input type="text" id="admin-prod-display-name" class="admin-input" placeholder="例: 波波鴿好運郵票" autocomplete="off" oninput="this.dataset.auto=''">
             </div>
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
@@ -1961,22 +1961,36 @@ const AdminSystem = {
         if (el) el.value = p.stocks[loc.id] || 0;
       });
     } else {
-      document.getElementById('admin-product-modal-title').innerHTML = "<i class='fa-solid fa-plus'></i> 新增商品";
-      document.getElementById('admin-product-action').value = "ADD";
-      document.getElementById('admin-product-old-id').value = "";
-
-      idInput.disabled = false; fetchBtn.disabled = false;
-      document.getElementById('admin-prod-id').value = "";
-      document.getElementById('admin-prod-name').value = "";
-      document.getElementById('admin-prod-price').value = "";
-      document.getElementById('admin-prod-stamp').value = "";
-      document.getElementById('admin-prod-fee').value = "";
-      document.getElementById('admin-prod-total').value = "";
-      document.getElementById('admin-prod-bom').value = "";
-      const addDisplayNameEl = document.getElementById('admin-prod-display-name');
-      addDisplayNameEl.value = "";
-      addDisplayNameEl.dataset.auto = '';
+      this.resetProductFormForAdd();
     }
+  },
+
+  // 「新增商品」模式清空整張表單、把票號欄位鎖回可編輯、游標移回票號輸入框——
+  // openProductModal 開新的一筆跟 saveProduct 存完想「連續新增下一筆」都呼叫這個,
+  // 兩邊的重置邏輯不會兜不起來。
+  resetProductFormForAdd: function() {
+    document.getElementById('admin-product-modal-title').innerHTML = "<i class='fa-solid fa-plus'></i> 新增商品";
+    document.getElementById('admin-product-action').value = "ADD";
+    document.getElementById('admin-product-old-id').value = "";
+
+    const idInput = document.getElementById('admin-prod-id');
+    idInput.disabled = false;
+    document.getElementById('admin-prod-fetch-btn').disabled = false;
+    idInput.value = "";
+    document.getElementById('admin-prod-name').value = "";
+    document.getElementById('admin-prod-price').value = "";
+    document.getElementById('admin-prod-stamp').value = "";
+    document.getElementById('admin-prod-fee').value = "";
+    document.getElementById('admin-prod-total').value = "";
+    document.getElementById('admin-prod-bom').value = "";
+    const dispEl = document.getElementById('admin-prod-display-name');
+    dispEl.value = "";
+    dispEl.dataset.auto = '';
+    this.productLocations.forEach(loc => {
+      const el = document.getElementById(`admin-prod-stock-${loc.id}`);
+      if (el) el.value = 0;
+    });
+    idInput.focus();
   },
 
   closeProductModal: function() { document.getElementById('admin-product-modal').style.display = 'none'; },
@@ -2036,8 +2050,16 @@ const AdminSystem = {
     }
 
     btn.innerHTML = "確認儲存"; btn.disabled = false;
-    AdminSystem.closeProductModal(); AdminSystem.loadProducts();
+    AdminSystem.loadProducts();
     refreshProducts(); // 同步刷新收銀掃描用的商品快取,不然剛新增/改過的商品要重新整理頁面才刷得到
+
+    if (action === 'ADD') {
+      // 新增模式存完不關視窗,直接清空、游標回到票號欄位,方便連續新增很多筆商品。
+      showToast(`<i class="fa-solid fa-circle-check"></i> 已新增「${id}」,可繼續新增下一筆`);
+      this.resetProductFormForAdd();
+    } else {
+      AdminSystem.closeProductModal();
+    }
   },
 
   deleteProduct: async function(id) {
