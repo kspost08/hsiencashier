@@ -582,7 +582,7 @@
               <div class="admin-form-group" style="flex:1">
                 <label>票號 (ID) <span class="text-danger">*</span></label>
                 <div style="display:flex; gap:5px;">
-                  <input type="text" id="admin-prod-id" class="admin-input" placeholder="例: A001" onkeydown="if(event.key==='Enter') AdminSystem.fetchMasterInfo()">
+                  <input type="text" id="admin-prod-id" class="admin-input" placeholder="例: A001" oninput="AdminSystem.onProdIdInput(this)" onkeydown="if(event.key==='Enter') AdminSystem.fetchMasterInfo()">
                   <button class="admin-btn admin-btn-sm" id="admin-prod-fetch-btn" onclick="AdminSystem.fetchMasterInfo()" style="padding:0 10px; background:#0288d1;"><i class="fa-solid fa-magnifying-glass"></i> 帶入</button>
                 </div>
               </div>
@@ -604,7 +604,7 @@
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
               <label><i class="fa-solid fa-tag"></i> 前端顯示名稱 <span class="text-danger">*</span><span class="info-tip" tabindex="0" data-tip="這是實際會顯示在收銀刷讀、購物車、顧客顯示螢幕、銷售紀錄與報表中的名稱,可以自訂成比主檔品名更簡短好辨識的名字。"><i class="fa-solid fa-circle-info"></i></span></label>
-              <input type="text" id="admin-prod-display-name" class="admin-input" placeholder="例: 波波鴿好運郵票">
+              <input type="text" id="admin-prod-display-name" class="admin-input" placeholder="例: 波波鴿好運郵票" oninput="this.dataset.auto=''">
             </div>
 
             <div class="admin-form-group" style="border-top:1px dashed #ccc; padding-top:15px;">
@@ -1860,24 +1860,53 @@ const AdminSystem = {
     document.getElementById('admin-products-table-container').innerHTML = html + '</tbody></table>';
   },
 
+  // 票號輸入框即時防呆:自動轉大寫(跟其他刷讀入口一致),清空時順便把「帶入」出來的
+  // 唯讀欄位、還有沒被使用者手動改過的顯示名稱一起重置,不留舊資料在畫面上誤導。
+  onProdIdInput: function(el) {
+    const pos = el.selectionStart;
+    el.value = el.value.toUpperCase();
+    el.setSelectionRange(pos, pos);
+    if (!el.value.trim()) {
+      document.getElementById('admin-prod-name').value = '';
+      document.getElementById('admin-prod-price').value = '';
+      document.getElementById('admin-prod-stamp').value = '';
+      document.getElementById('admin-prod-fee').value = '';
+      document.getElementById('admin-prod-total').value = '';
+      const displayNameEl = document.getElementById('admin-prod-display-name');
+      if (displayNameEl.dataset.auto === '1') { displayNameEl.value = ''; displayNameEl.dataset.auto = ''; }
+    }
+  },
+
   fetchMasterInfo: async function() {
-    const id = document.getElementById('admin-prod-id').value.trim();
+    const idInput = document.getElementById('admin-prod-id');
+    const id = idInput.value.trim().toUpperCase();
+    idInput.value = id;
     if (!id) { alert("請先輸入票號!"); return; }
     const btn = document.getElementById('admin-prod-fetch-btn');
     btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i>..."; btn.disabled = true;
 
-    const { data: m } = await supabaseClient.from('master_products').select('*').eq('ticket_id', id).single();
+    let { data: m } = await supabaseClient.from('master_products').select('*').eq('ticket_id', id).single();
+    // 跟刷讀收銀(processBarcode)同一套退而求其次邏輯:票號固定8碼,掃到的碼超過8碼、
+    // 完全比對不到時,改比對前8碼(常見於條碼把單價黏在票號後面印出來的舊標籤)。
+    if (!m && id.length > 8) {
+      const { data: m2 } = await supabaseClient.from('master_products').select('*').eq('ticket_id', id.slice(0, 8)).single();
+      if (m2) { m = m2; idInput.value = id.slice(0, 8); }
+    }
     btn.innerHTML = "<i class='fa-solid fa-magnifying-glass'></i> 帶入"; btn.disabled = false;
 
+    const displayNameEl = document.getElementById('admin-prod-display-name');
     if (m) {
       document.getElementById('admin-prod-name').value = m.name;
       document.getElementById('admin-prod-price').value = m.price;
       document.getElementById('admin-prod-stamp').value = m.stamp;
       document.getElementById('admin-prod-fee').value = m.fee;
       document.getElementById('admin-prod-total').value = m.total;
-      // 只在顯示名稱還是空的時候才帶入主檔品名當預設建議值,不覆蓋使用者已經手動改過的自訂名稱
-      const displayNameEl = document.getElementById('admin-prod-display-name');
-      if (!displayNameEl.value.trim()) displayNameEl.value = m.name;
+      // 顯示名稱還是空的、或還是上一次查詢自動帶入的值(使用者還沒自己手動改過),
+      // 這次查詢就跟著換成新票號的品名;使用者一旦手動打字改過(見 oninput),就不再覆蓋。
+      if (!displayNameEl.value.trim() || displayNameEl.dataset.auto === '1') {
+        displayNameEl.value = m.name;
+        displayNameEl.dataset.auto = '1';
+      }
     } else {
       alert("❌ 主檔查無此票號");
       document.getElementById('admin-prod-name').value = "";
@@ -1921,7 +1950,11 @@ const AdminSystem = {
       document.getElementById('admin-prod-fee').value = p.fee;
       document.getElementById('admin-prod-total').value = p.total;
       document.getElementById('admin-prod-bom').value = p.bom;
-      document.getElementById('admin-prod-display-name').value = p.name || "";
+      // 編輯模式帶進來的是使用者已經設定好的自訂名稱,不是自動帶入的,之後「帶入」重查主檔
+      // 不該覆蓋它(見 fetchMasterInfo 對 dataset.auto 的判斷)。
+      const editDisplayNameEl = document.getElementById('admin-prod-display-name');
+      editDisplayNameEl.value = p.name || "";
+      editDisplayNameEl.dataset.auto = '';
 
       this.productLocations.forEach(loc => {
         const el = document.getElementById(`admin-prod-stock-${loc.id}`);
@@ -1940,7 +1973,9 @@ const AdminSystem = {
       document.getElementById('admin-prod-fee').value = "";
       document.getElementById('admin-prod-total').value = "";
       document.getElementById('admin-prod-bom').value = "";
-      document.getElementById('admin-prod-display-name').value = "";
+      const addDisplayNameEl = document.getElementById('admin-prod-display-name');
+      addDisplayNameEl.value = "";
+      addDisplayNameEl.dataset.auto = '';
     }
   },
 
