@@ -657,7 +657,6 @@
     <div class="modal-body" style="height:100%; position:relative;" id="activity-modal-body">
       <div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容</p></div>
     </div>
-    <div id="activity-dots" style="display:none; justify-content:center; gap: var(--sp-2); padding: var(--sp-2); background:#263238;"></div>
   </div>
 </div>
 
@@ -1011,11 +1010,46 @@
     activeActivityPage.applyZoom(ACTIVITY_ZOOM_STEPS[idx]);
   }
 
+  // 換頁時同步「目前第幾張」的所有 UI:計數器、圓點、+/- 縮放作用對象、開新分頁連結。
+  // 這段抽成獨立函式,滑動捲動、點圓點、按左右箭頭三種切換方式都呼叫它,行為才會一致。
+  function syncActivityPage(idx) {
+    const carousel = document.getElementById('activity-carousel');
+    const zoomControls = document.getElementById('activity-zoom-controls');
+    const newTabBtn = document.getElementById('activity-newtab-btn');
+    const counter = document.getElementById('activity-page-counter');
+    const dots = document.getElementById('activity-dots');
+    const prevBtn = document.getElementById('activity-prev-btn');
+    const nextBtn = document.getElementById('activity-next-btn');
+    const url = activityUrls[idx];
+    if (!carousel || !url) return;
+
+    newTabBtn.href = url;
+    counter.textContent = activityUrls.length > 1 ? `(${idx + 1} / ${activityUrls.length})` : '';
+    if (dots) Array.from(dots.children).forEach((d, i) => d.style.background = i === idx ? '#fff' : 'rgba(255,255,255,0.5)');
+    if (prevBtn) prevBtn.style.visibility = idx === 0 ? 'hidden' : 'visible';
+    if (nextBtn) nextBtn.style.visibility = idx === activityUrls.length - 1 ? 'hidden' : 'visible';
+
+    const isPdf = /\.pdf(\?|$)/i.test(url);
+    if (isPdf) { zoomControls.style.display = 'none'; activeActivityPage = null; }
+    else {
+      const img = carousel.children[idx].querySelector('img');
+      zoomControls.style.display = 'inline-flex';
+      if (img && img._zoomApi) { activeActivityPage = img._zoomApi; document.getElementById('activity-zoom-pct').textContent = activeActivityPage.getPct() + '%'; }
+    }
+  }
+
+  function activityCarouselNav(dir) {
+    const carousel = document.getElementById('activity-carousel');
+    if (!carousel) return;
+    const idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+    const next = Math.min(activityUrls.length - 1, Math.max(0, idx + dir));
+    carousel.scrollTo({ left: next * carousel.clientWidth, behavior: 'smooth' });
+  }
+
   function openActivityModal() {
     const container = document.getElementById('activity-modal-body');
     const zoomControls = document.getElementById('activity-zoom-controls');
     const newTabBtn = document.getElementById('activity-newtab-btn');
-    const dots = document.getElementById('activity-dots');
     const counter = document.getElementById('activity-page-counter');
     activeActivityPage = null;
 
@@ -1023,19 +1057,25 @@
       container.innerHTML = '<div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容(請到系統後台設定)</p></div>';
       zoomControls.style.display = 'none';
       newTabBtn.style.display = 'none';
-      dots.style.display = 'none';
       counter.style.display = 'none';
     } else {
+      const multi = activityUrls.length > 1;
       newTabBtn.style.display = 'inline-flex';
       newTabBtn.href = activityUrls[0];
-      counter.style.display = activityUrls.length > 1 ? 'inline' : 'none';
-      counter.textContent = activityUrls.length > 1 ? `(1 / ${activityUrls.length})` : '';
+      counter.style.display = multi ? 'inline' : 'none';
 
       // 多張時橫向排列、一次一張滿版,可滑動/捲動切換,用 scroll-snap 讓切換時自然卡在整張上。
-      container.innerHTML = `<div id="activity-carousel" style="width:100%; height:100%; overflow-x:auto; overflow-y:hidden; display:flex; scroll-snap-type:x mandatory;"></div>`;
+      // 左右箭頭跟圓點都疊加(position:absolute)在圖片上方,固定在可視範圍內,
+      // 不會因為視窗較矮、被裁到看不到(這是取代原本另外放一排圓點、可能被擠出畫面外的做法)。
+      container.innerHTML = `
+        <div id="activity-carousel" style="width:100%; height:100%; overflow-x:auto; overflow-y:hidden; display:flex; scroll-snap-type:x mandatory;"></div>
+        ${multi ? `
+          <button type="button" id="activity-prev-btn" onclick="activityCarouselNav(-1)" title="上一張" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); z-index:5; width:44px; height:44px; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; border:none; font-size:18px; cursor:pointer; visibility:hidden;"><i class="fa-solid fa-chevron-left"></i></button>
+          <button type="button" id="activity-next-btn" onclick="activityCarouselNav(1)" title="下一張" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); z-index:5; width:44px; height:44px; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; border:none; font-size:18px; cursor:pointer;"><i class="fa-solid fa-chevron-right"></i></button>
+          <div id="activity-dots" style="position:absolute; left:0; right:0; bottom:14px; display:flex; justify-content:center; gap: var(--sp-2); z-index:5;"></div>
+        ` : ''}`;
       const carousel = document.getElementById('activity-carousel');
-      dots.innerHTML = '';
-      dots.style.display = activityUrls.length > 1 ? 'flex' : 'none';
+      const dots = document.getElementById('activity-dots');
 
       activityUrls.forEach((url, i) => {
         const page = document.createElement('div');
@@ -1057,9 +1097,9 @@
         }
         carousel.appendChild(page);
 
-        if (activityUrls.length > 1) {
+        if (dots) {
           const dot = document.createElement('span');
-          dot.style.cssText = `width:8px; height:8px; border-radius:50%; cursor:pointer; background:${i === 0 ? '#fff' : 'rgba(255,255,255,0.4)'};`;
+          dot.style.cssText = `width:9px; height:9px; border-radius:50%; cursor:pointer; background:${i === 0 ? '#fff' : 'rgba(255,255,255,0.5)'}; box-shadow:0 0 2px rgba(0,0,0,0.8);`;
           dot.onclick = () => carousel.scrollTo({ left: i * carousel.clientWidth, behavior: 'smooth' });
           dots.appendChild(dot);
         }
@@ -1068,28 +1108,13 @@
         if (i === 0 && zoomApi) activeActivityPage = zoomApi;
       });
 
-      zoomControls.style.display = activityUrls.length && !/\.pdf(\?|$)/i.test(activityUrls[0]) ? 'inline-flex' : 'none';
+      zoomControls.style.display = !/\.pdf(\?|$)/i.test(activityUrls[0]) ? 'inline-flex' : 'none';
+      syncActivityPage(0);
 
-      // 捲動時更新目前是第幾張、+/- 按鈕作用對象、新分頁連結、縮放控制是否顯示(PDF 頁沒有縮放)。
       let scrollTimer;
       carousel.addEventListener('scroll', () => {
         clearTimeout(scrollTimer);
-        scrollTimer = setTimeout(() => {
-          const idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
-          const url = activityUrls[idx];
-          if (!url) return;
-          newTabBtn.href = url;
-          counter.textContent = `(${idx + 1} / ${activityUrls.length})`;
-          Array.from(dots.children).forEach((d, i) => d.style.background = i === idx ? '#fff' : 'rgba(255,255,255,0.4)');
-          const isPdf = /\.pdf(\?|$)/i.test(url);
-          if (isPdf) { zoomControls.style.display = 'none'; activeActivityPage = null; }
-          else {
-            const img = carousel.children[idx].querySelector('img');
-            const wrap = img && img.parentElement;
-            zoomControls.style.display = 'inline-flex';
-            if (img && img._zoomApi) { activeActivityPage = img._zoomApi; document.getElementById('activity-zoom-pct').textContent = activeActivityPage.getPct() + '%'; }
-          }
-        }, 120);
+        scrollTimer = setTimeout(() => syncActivityPage(Math.round(carousel.scrollLeft / carousel.clientWidth)), 120);
       });
     }
     document.getElementById('activity-modal').style.display = 'flex';
