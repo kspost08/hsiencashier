@@ -1330,7 +1330,8 @@ const AdminSystem = {
 
   // 活動公告檔案(圖片/PDF)存在 Supabase Storage 的 announcements bucket,
   // settings.activity_url 只存 public URL,前端靠副檔名判斷是圖片還是 PDF。
-  renderActivityPreview: function(url) {
+  // 檔名格式是 `${timestamp}_${原始檔名}`,方便之後從網址反查原始檔名(見 loadActivityInfo)。
+  renderActivityPreview: function(url, freshFile) {
     const box = document.getElementById('admin-activity-preview');
     if (!url) { box.innerHTML = ''; return; }
     const isPdf = /\.pdf(\?|$)/i.test(url);
@@ -1338,12 +1339,67 @@ const AdminSystem = {
       ? `<div style="display:flex; align-items:center; gap:var(--sp-3);">
            <i class="fa-solid fa-file-pdf" style="color:#d32f2f; font-size:28px;"></i>
            <a href="${url}" target="_blank" rel="noopener">預覽 PDF</a>
+           <i class="fa-solid fa-circle-info" style="cursor:pointer; color:var(--primary);" title="檔案資訊" onclick="AdminSystem.toggleActivityInfo()"></i>
            <button type="button" class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.removeActivityFile()">移除</button>
-         </div>`
+         </div>
+         <div id="admin-activity-info-panel" class="text-sub" style="display:none; margin-top:var(--sp-2); padding:var(--sp-2) var(--sp-3); background:#f5f7f8; border-radius:var(--radius-sm); line-height:1.6;">讀取中...</div>`
       : `<div style="display:flex; align-items:center; gap:var(--sp-3);">
            <img src="${url}" style="height:70px; border-radius:var(--radius-sm); border:1px solid #cfd8dc; object-fit:cover;">
+           <i class="fa-solid fa-circle-info" style="cursor:pointer; color:var(--primary);" title="檔案資訊" onclick="AdminSystem.toggleActivityInfo()"></i>
            <button type="button" class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.removeActivityFile()">移除</button>
-         </div>`;
+         </div>
+         <div id="admin-activity-info-panel" class="text-sub" style="display:none; margin-top:var(--sp-2); padding:var(--sp-2) var(--sp-3); background:#f5f7f8; border-radius:var(--radius-sm); line-height:1.6;">讀取中...</div>`;
+    this.loadActivityInfo(url, isPdf, freshFile);
+  },
+
+  toggleActivityInfo: function() {
+    const panel = document.getElementById('admin-activity-info-panel');
+    if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  },
+
+  formatBytes: function(bytes) {
+    if (bytes === null || bytes === undefined) return '未知';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  },
+
+  // freshFile 是剛選好、還沒上傳完成前手邊就有的 File 物件:能直接讀 size/尺寸,
+  // 不用等上傳完再回頭打 API 查,使用者體感比較快。舊資料(重新整理後)才需要
+  // 用 storage.list() 查檔案大小、用 Image() load 網址查圖片尺寸。
+  loadActivityInfo: async function(url, isPdf, freshFile) {
+    const panel = document.getElementById('admin-activity-info-panel');
+    if (!panel) return;
+
+    const marker = '/storage/v1/object/public/announcements/';
+    const idx = url.indexOf(marker);
+    const path = idx === -1 ? '' : decodeURIComponent(url.slice(idx + marker.length));
+    const fileNameOnly = path.split('/').pop() || '';
+    const originalName = (fileNameOnly.match(/^\d+_(.+)$/) || [null, fileNameOnly])[1];
+
+    let size = freshFile ? freshFile.size : null;
+    if (size === null && path) {
+      const folder = path.substring(0, path.lastIndexOf('/'));
+      const { data } = await supabaseClient.storage.from('announcements').list(folder, { search: fileNameOnly });
+      const match = data && data.find(f => f.name === fileNameOnly);
+      if (match && match.metadata) size = match.metadata.size;
+    }
+
+    let dimsLine = '';
+    if (!isPdf) {
+      const dims = await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => resolve(null);
+        img.src = freshFile ? URL.createObjectURL(freshFile) : url;
+      });
+      if (dims) dimsLine = `<div>尺寸:${dims.w} x ${dims.h} px</div>`;
+    }
+
+    // 非同步查完才寫入,如果使用者這期間換了檔案(panel 已被換掉),就不要寫舊資料進去。
+    if (document.getElementById('admin-activity-info-panel') === panel) {
+      panel.innerHTML = `<div>檔名:${originalName || '(未知)'}</div>${dimsLine}<div>檔案大小:${this.formatBytes(size)}</div>`;
+    }
   },
 
   // 舊檔案盡量清掉,失敗也不擋流程(例如舊值本來就不是這個 bucket 的檔案)。
@@ -1370,7 +1426,8 @@ const AdminSystem = {
 
     status.textContent = '上傳中...';
     const ext = isPdf ? 'pdf' : (file.name.split('.').pop() || 'png');
-    const path = `activity/${Date.now()}.${ext}`;
+    const safeName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9一-龥_-]/g, '_').slice(0, 60) || 'file';
+    const path = `activity/${Date.now()}_${safeName}.${ext}`;
 
     const { error: uploadError } = await supabaseClient.storage.from('announcements').upload(path, file, { cacheControl: '3600', upsert: false });
     input.value = '';
@@ -1382,7 +1439,7 @@ const AdminSystem = {
     const { data } = supabaseClient.storage.from('announcements').getPublicUrl(path);
     const oldUrl = document.getElementById('admin-set-url').value;
     document.getElementById('admin-set-url').value = data.publicUrl;
-    this.renderActivityPreview(data.publicUrl);
+    this.renderActivityPreview(data.publicUrl, file);
     status.textContent = '✅ 已上傳,記得按下方「儲存設定並同步」';
     await this.deleteActivityStorageFile(oldUrl);
   },
