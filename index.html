@@ -385,10 +385,13 @@
           <div class="admin-form-group"><label>系統版本號</label><input type="text" id="admin-set-version" class="admin-input"></div>
           <div class="admin-form-group"><label>攤位重要公告</label><textarea id="admin-set-notice" class="admin-textarea"></textarea></div>
           <div class="admin-form-group">
-            <label>攤位活動公告(圖片或 PDF)</label>
-            <input type="hidden" id="admin-set-url">
-            <div id="admin-activity-preview" style="margin-bottom: var(--sp-2);"></div>
-            <input type="file" id="admin-activity-file" accept="image/*,application/pdf" class="admin-input" onchange="AdminSystem.uploadActivityFile(this)">
+            <label>攤位活動公告(圖片或 PDF,可上傳多份) <i class="fa-solid fa-circle-info" style="cursor:pointer; color:var(--primary);" title="說明" onclick="AdminSystem.toggleActivityInfo()"></i></label>
+            <div id="admin-activity-info-panel" class="text-sub" style="display:none; margin-bottom:var(--sp-2); padding:var(--sp-2) var(--sp-3); background:#f5f7f8; border-radius:var(--radius-sm); line-height:1.6;">
+              僅接受 JPG / PNG / PDF。建議圖片寬度 1200px 以上,直式橫式皆可。單檔建議 5MB 以內,避免現場網路載入太慢。<br>
+              可一次選取多個檔案或分次上傳,會依上傳順序在客戶端橫向排列,可左右滑動切換。
+            </div>
+            <div id="admin-activity-preview" style="margin-bottom: var(--sp-2); display:flex; flex-wrap:wrap; gap: var(--sp-3);"></div>
+            <input type="file" id="admin-activity-file" accept="image/*,application/pdf" multiple class="admin-input" onchange="AdminSystem.uploadActivityFiles(this)">
             <div id="admin-activity-upload-status" class="text-sub" style="margin-top: var(--sp-1);"></div>
           </div>
           <div class="admin-form-group"><label>報表接收 Email</label><input type="text" id="admin-set-email" class="admin-input"></div>
@@ -640,7 +643,7 @@
 <div id="activity-modal" class="modal-overlay" onclick="closeActivityModal(event)">
   <div class="modal-content">
     <div class="modal-header">
-      <span><i class="fa-solid fa-calendar-days"></i> 當前攤位活動詳情</span>
+      <span><i class="fa-solid fa-calendar-days"></i> 當前攤位活動詳情 <span id="activity-page-counter" class="text-sub" style="display:none; color:#cfd8dc; font-weight:400; font-size:var(--fs-sm);"></span></span>
       <div style="display:flex; align-items:center; gap: var(--sp-4);">
         <span id="activity-zoom-controls" style="display:none; align-items:center; gap: var(--sp-2);">
           <i class="fa-solid fa-magnifying-glass-minus" style="cursor:pointer;" title="縮小" onclick="activityZoomStep(-1)"></i>
@@ -651,9 +654,10 @@
         <span class="close-btn" onclick="document.getElementById('activity-modal').style.display='none'"><i class="fa-solid fa-xmark"></i></span>
       </div>
     </div>
-    <div class="modal-body" style="height:100%;" id="activity-modal-body">
+    <div class="modal-body" style="height:100%; position:relative;" id="activity-modal-body">
       <div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容</p></div>
     </div>
+    <div id="activity-dots" style="display:none; justify-content:center; gap: var(--sp-2); padding: var(--sp-2); background:#263238;"></div>
   </div>
 </div>
 
@@ -708,7 +712,7 @@
     posChannel = supabaseClient.channel('pos:' + combinedBranchKey());
     posChannel.subscribe();
   }
-  let activityUrl = "";
+  let activityUrls = [];
 
   function showLoginScreen() {
     const savedAcc = localStorage.getItem('pos_acc');
@@ -725,7 +729,7 @@
     document.getElementById('sysVersionDisplay').textContent = settings.version || 'dev';
     document.getElementById('footerVersion').textContent = settings.version || 'dev';
     document.getElementById('noticeContent').textContent = settings.notice || '';
-    activityUrl = settings.activity_url || '';
+    activityUrls = settings.activity_urls || [];
   }
 
   window.onload = async () => {
@@ -931,61 +935,166 @@
   }
 
   function closeQrModal(e) { if (e.target.id === 'qr-modal') document.getElementById('qr-modal').style.display = 'none'; }
-  const ACTIVITY_ZOOM_STEPS = [100, 200, 300, 400];
-  let activityZoomPct = 100;
+  // 縮放級距用 25% 為單位,比原本 100 跳一次 100% 更細緻,才不會一放大字就爆版。
+  const ACTIVITY_ZOOM_STEPS = [100, 125, 150, 175, 200, 250, 300];
+  let activeActivityPage = null; // 目前操作中那一張圖的 {applyZoom, getPct} API,+/- 按鈕作用在它身上
+
+  // 每張圖片各自管理自己的縮放/拖曳平移狀態,彼此獨立、互不影響。
+  // 點擊(未拖曳時)在級距內循環放大,拖曳(滑鼠或觸控)則平移已放大的圖片內容 —— 這是取代
+  // 「只能用捲軸移動,看不到全貌」的手型拖曳工具。
+  function initActivityImagePanZoom(imgEl, wrapEl) {
+    let pct = 100;
+    let dragging = false, moved = false, startX, startY, startLeft, startTop;
+
+    function applyZoom(newPct) {
+      pct = newPct;
+      if (activeActivityPage && activeActivityPage.img === imgEl) {
+        document.getElementById('activity-zoom-pct').textContent = pct + '%';
+      }
+      if (pct === 100) {
+        imgEl.style.maxWidth = '100%'; imgEl.style.maxHeight = '100%'; imgEl.style.width = '';
+        wrapEl.style.cursor = 'zoom-in';
+        wrapEl.scrollLeft = 0; wrapEl.scrollTop = 0;
+      } else {
+        imgEl.style.maxWidth = 'none'; imgEl.style.maxHeight = 'none'; imgEl.style.width = pct + '%';
+        wrapEl.style.cursor = 'grab';
+      }
+    }
+    const api = { img: imgEl, applyZoom, getPct: () => pct };
+
+    function activate() {
+      activeActivityPage = api;
+      document.getElementById('activity-zoom-pct').textContent = pct + '%';
+    }
+    function cycleZoom() {
+      const idx = ACTIVITY_ZOOM_STEPS.indexOf(pct);
+      applyZoom(idx === -1 || idx === ACTIVITY_ZOOM_STEPS.length - 1 ? ACTIVITY_ZOOM_STEPS[0] : ACTIVITY_ZOOM_STEPS[idx + 1]);
+    }
+
+    function dragStart(x, y) {
+      activate();
+      dragging = true; moved = false;
+      startX = x; startY = y; startLeft = wrapEl.scrollLeft; startTop = wrapEl.scrollTop;
+    }
+    function dragMove(x, y) {
+      if (!dragging || pct === 100) return; // 100% 沒有可平移的空間,留給 click 判斷放大就好
+      const dx = x - startX, dy = y - startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        moved = true;
+        wrapEl.style.cursor = 'grabbing';
+        wrapEl.scrollLeft = startLeft - dx; wrapEl.scrollTop = startTop - dy;
+      }
+    }
+    function dragEnd() {
+      if (!dragging) return;
+      dragging = false;
+      wrapEl.style.cursor = pct === 100 ? 'zoom-in' : 'grab';
+      if (!moved) cycleZoom();
+    }
+
+    imgEl.addEventListener('mousedown', e => { dragStart(e.pageX, e.pageY); e.preventDefault(); });
+    document.addEventListener('mousemove', e => dragMove(e.pageX, e.pageY));
+    document.addEventListener('mouseup', dragEnd);
+    imgEl.addEventListener('touchstart', e => { const t = e.touches[0]; dragStart(t.pageX, t.pageY); }, { passive: true });
+    wrapEl.addEventListener('touchmove', e => { const t = e.touches[0]; dragMove(t.pageX, t.pageY); }, { passive: true });
+    wrapEl.addEventListener('touchend', dragEnd);
+
+    applyZoom(100);
+    return api;
+  }
+
+  function activityZoomStep(dir) {
+    if (!activeActivityPage) return;
+    let idx = ACTIVITY_ZOOM_STEPS.indexOf(activeActivityPage.getPct());
+    if (idx === -1) idx = 0;
+    idx = Math.min(ACTIVITY_ZOOM_STEPS.length - 1, Math.max(0, idx + dir));
+    activeActivityPage.applyZoom(ACTIVITY_ZOOM_STEPS[idx]);
+  }
 
   function openActivityModal() {
-    const body = document.getElementById('activity-modal-body');
+    const container = document.getElementById('activity-modal-body');
     const zoomControls = document.getElementById('activity-zoom-controls');
     const newTabBtn = document.getElementById('activity-newtab-btn');
-    activityZoomPct = 100;
+    const dots = document.getElementById('activity-dots');
+    const counter = document.getElementById('activity-page-counter');
+    activeActivityPage = null;
 
-    if (!activityUrl) {
-      body.innerHTML = '<div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容(請到系統後台設定)</p></div>';
+    if (!activityUrls.length) {
+      container.innerHTML = '<div class="text-sub" style="display:flex; align-items:center; justify-content:center; height:100%;"><p>尚未設定活動內容(請到系統後台設定)</p></div>';
       zoomControls.style.display = 'none';
       newTabBtn.style.display = 'none';
+      dots.style.display = 'none';
+      counter.style.display = 'none';
     } else {
-      const isPdf = /\.pdf(\?|$)/i.test(activityUrl);
-      newTabBtn.href = activityUrl;
       newTabBtn.style.display = 'inline-flex';
-      if (isPdf) {
-        // PDF 靠瀏覽器內建的檢視器縮放(工具列本身就有 +/-),不用自己做放大。
-        body.innerHTML = `<iframe src="${activityUrl}#toolbar=1" style="width:100%; height:100%; border:none;"></iframe>`;
-        zoomControls.style.display = 'none';
-      } else {
-        body.innerHTML = `<div style="width:100%; height:100%; overflow:auto; display:flex; align-items:center; justify-content:center; background:#1a1a1a;">
-            <img id="activity-img" src="${activityUrl}" style="max-width:100%; max-height:100%; cursor:zoom-in;" onclick="activityImgClick()">
-          </div>`;
-        zoomControls.style.display = 'inline-flex';
-        document.getElementById('activity-zoom-pct').textContent = '100%';
-      }
+      newTabBtn.href = activityUrls[0];
+      counter.style.display = activityUrls.length > 1 ? 'inline' : 'none';
+      counter.textContent = activityUrls.length > 1 ? `(1 / ${activityUrls.length})` : '';
+
+      // 多張時橫向排列、一次一張滿版,可滑動/捲動切換,用 scroll-snap 讓切換時自然卡在整張上。
+      container.innerHTML = `<div id="activity-carousel" style="width:100%; height:100%; overflow-x:auto; overflow-y:hidden; display:flex; scroll-snap-type:x mandatory;"></div>`;
+      const carousel = document.getElementById('activity-carousel');
+      dots.innerHTML = '';
+      dots.style.display = activityUrls.length > 1 ? 'flex' : 'none';
+
+      activityUrls.forEach((url, i) => {
+        const page = document.createElement('div');
+        page.style.cssText = 'flex:0 0 100%; scroll-snap-align:start; height:100%; display:flex; align-items:center; justify-content:center; background:#1a1a1a; overflow:hidden;';
+        const isPdf = /\.pdf(\?|$)/i.test(url);
+        let zoomApi = null;
+        if (isPdf) {
+          page.innerHTML = `<iframe src="${url}#toolbar=1" style="width:100%; height:100%; border:none;"></iframe>`;
+        } else {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'width:100%; height:100%; overflow:auto; display:flex; align-items:center; justify-content:center;';
+          const img = document.createElement('img');
+          img.src = url;
+          img.style.cssText = 'max-width:100%; max-height:100%; cursor:zoom-in; user-select:none;';
+          wrap.appendChild(img);
+          page.appendChild(wrap);
+          zoomApi = initActivityImagePanZoom(img, wrap);
+          img._zoomApi = zoomApi;
+        }
+        carousel.appendChild(page);
+
+        if (activityUrls.length > 1) {
+          const dot = document.createElement('span');
+          dot.style.cssText = `width:8px; height:8px; border-radius:50%; cursor:pointer; background:${i === 0 ? '#fff' : 'rgba(255,255,255,0.4)'};`;
+          dot.onclick = () => carousel.scrollTo({ left: i * carousel.clientWidth, behavior: 'smooth' });
+          dots.appendChild(dot);
+        }
+
+        // 只有非 PDF 的頁面才有縮放,第一頁預設當作目前操作對象,讓 header 的 +/- 按鈕一開就能用。
+        if (i === 0 && zoomApi) activeActivityPage = zoomApi;
+      });
+
+      zoomControls.style.display = activityUrls.length && !/\.pdf(\?|$)/i.test(activityUrls[0]) ? 'inline-flex' : 'none';
+
+      // 捲動時更新目前是第幾張、+/- 按鈕作用對象、新分頁連結、縮放控制是否顯示(PDF 頁沒有縮放)。
+      let scrollTimer;
+      carousel.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+          const idx = Math.round(carousel.scrollLeft / carousel.clientWidth);
+          const url = activityUrls[idx];
+          if (!url) return;
+          newTabBtn.href = url;
+          counter.textContent = `(${idx + 1} / ${activityUrls.length})`;
+          Array.from(dots.children).forEach((d, i) => d.style.background = i === idx ? '#fff' : 'rgba(255,255,255,0.4)');
+          const isPdf = /\.pdf(\?|$)/i.test(url);
+          if (isPdf) { zoomControls.style.display = 'none'; activeActivityPage = null; }
+          else {
+            const img = carousel.children[idx].querySelector('img');
+            const wrap = img && img.parentElement;
+            zoomControls.style.display = 'inline-flex';
+            if (img && img._zoomApi) { activeActivityPage = img._zoomApi; document.getElementById('activity-zoom-pct').textContent = activeActivityPage.getPct() + '%'; }
+          }
+        }, 120);
+      });
     }
     document.getElementById('activity-modal').style.display = 'flex';
   }
   function closeActivityModal(e) { if (e.target.id === 'activity-modal') document.getElementById('activity-modal').style.display = 'none'; }
-
-  function setActivityZoom(pct) {
-    activityZoomPct = pct;
-    document.getElementById('activity-zoom-pct').textContent = pct + '%';
-    const img = document.getElementById('activity-img');
-    if (!img) return;
-    if (pct === 100) {
-      img.style.maxWidth = '100%'; img.style.maxHeight = '100%'; img.style.width = ''; img.style.cursor = 'zoom-in';
-    } else {
-      img.style.maxWidth = 'none'; img.style.maxHeight = 'none'; img.style.width = pct + '%'; img.style.cursor = 'zoom-out';
-    }
-  }
-  function activityZoomStep(dir) {
-    let idx = ACTIVITY_ZOOM_STEPS.indexOf(activityZoomPct);
-    if (idx === -1) idx = 0;
-    idx = Math.min(ACTIVITY_ZOOM_STEPS.length - 1, Math.max(0, idx + dir));
-    setActivityZoom(ACTIVITY_ZOOM_STEPS[idx]);
-  }
-  function activityImgClick() {
-    const idx = ACTIVITY_ZOOM_STEPS.indexOf(activityZoomPct);
-    if (idx === -1 || idx === ACTIVITY_ZOOM_STEPS.length - 1) setActivityZoom(ACTIVITY_ZOOM_STEPS[0]);
-    else activityZoomStep(1);
-  }
 
   async function updateLastRecordPeek() {
     if (!myUser.branchName || !myUser.locationId) return;
@@ -1307,7 +1416,7 @@ const AdminSystem = {
 
   // ==================== 模組 1:設定管理(settings 表) ====================
   locationsData: [],
-  previousActivityUrl: '',
+  activityUrls: [],
 
   loadSettings: async function() {
     const btn = document.getElementById('admin-save-settings-btn');
@@ -1318,38 +1427,30 @@ const AdminSystem = {
       document.getElementById('admin-set-title').value = settings.title || "";
       document.getElementById('admin-set-version').value = settings.version || "";
       document.getElementById('admin-set-notice').value = settings.notice || "";
-      document.getElementById('admin-set-url').value = settings.activity_url || "";
       document.getElementById('admin-set-email').value = settings.email || "";
-      this.previousActivityUrl = settings.activity_url || '';
-      this.renderActivityPreview(settings.activity_url || '');
+      this.activityUrls = settings.activity_urls || [];
+      this.renderActivityPreview();
     }
 
     btn.innerHTML = "<i class='fa-solid fa-floppy-disk'></i> 儲存設定並同步";
     await AdminSystem.loadLocations();
   },
 
-  // 活動公告檔案(圖片/PDF)存在 Supabase Storage 的 announcements bucket,
-  // settings.activity_url 只存 public URL,前端靠副檔名判斷是圖片還是 PDF。
-  // 檔名格式是 `${timestamp}_${原始檔名}`,方便之後從網址反查原始檔名(見 loadActivityInfo)。
-  renderActivityPreview: function(url, freshFile) {
+  // 攤位活動公告(圖片/PDF,可多份)存在 Supabase Storage 的 announcements bucket,
+  // settings.activity_urls 是 public URL 陣列,前端靠副檔名判斷每份是圖片還是 PDF。
+  // ℹ️ icon 顯示的是固定的上傳說明(格式/尺寸建議),不是個別檔案的技術資訊。
+  renderActivityPreview: function() {
     const box = document.getElementById('admin-activity-preview');
-    if (!url) { box.innerHTML = ''; return; }
-    const isPdf = /\.pdf(\?|$)/i.test(url);
-    box.innerHTML = isPdf
-      ? `<div style="display:flex; align-items:center; gap:var(--sp-3);">
-           <i class="fa-solid fa-file-pdf" style="color:#d32f2f; font-size:28px;"></i>
-           <a href="${url}" target="_blank" rel="noopener">預覽 PDF</a>
-           <i class="fa-solid fa-circle-info" style="cursor:pointer; color:var(--primary);" title="檔案資訊" onclick="AdminSystem.toggleActivityInfo()"></i>
-           <button type="button" class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.removeActivityFile()">移除</button>
-         </div>
-         <div id="admin-activity-info-panel" class="text-sub" style="display:none; margin-top:var(--sp-2); padding:var(--sp-2) var(--sp-3); background:#f5f7f8; border-radius:var(--radius-sm); line-height:1.6;">讀取中...</div>`
-      : `<div style="display:flex; align-items:center; gap:var(--sp-3);">
-           <img src="${url}" style="height:70px; border-radius:var(--radius-sm); border:1px solid #cfd8dc; object-fit:cover;">
-           <i class="fa-solid fa-circle-info" style="cursor:pointer; color:var(--primary);" title="檔案資訊" onclick="AdminSystem.toggleActivityInfo()"></i>
-           <button type="button" class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.removeActivityFile()">移除</button>
-         </div>
-         <div id="admin-activity-info-panel" class="text-sub" style="display:none; margin-top:var(--sp-2); padding:var(--sp-2) var(--sp-3); background:#f5f7f8; border-radius:var(--radius-sm); line-height:1.6;">讀取中...</div>`;
-    this.loadActivityInfo(url, isPdf, freshFile);
+    box.innerHTML = this.activityUrls.map((url, i) => {
+      const isPdf = /\.pdf(\?|$)/i.test(url);
+      const thumb = isPdf
+        ? `<a href="${url}" target="_blank" rel="noopener" style="display:flex; flex-direction:column; align-items:center; gap:4px; width:70px;"><i class="fa-solid fa-file-pdf" style="color:#d32f2f; font-size:32px;"></i><span class="text-sub" style="font-size:11px;">PDF ${i + 1}</span></a>`
+        : `<img src="${url}" style="width:70px; height:70px; border-radius:var(--radius-sm); border:1px solid #cfd8dc; object-fit:cover;">`;
+      return `<div style="position:relative;">
+          ${thumb}
+          <button type="button" onclick="AdminSystem.removeActivityUrl(${i})" title="移除" style="position:absolute; top:-8px; right:-8px; width:22px; height:22px; border-radius:50%; background:#e53935; color:white; border:2px solid white; cursor:pointer; font-size:12px; line-height:1; padding:0;"><i class="fa-solid fa-xmark"></i></button>
+        </div>`;
+    }).join('');
   },
 
   toggleActivityInfo: function() {
@@ -1357,54 +1458,7 @@ const AdminSystem = {
     if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   },
 
-  formatBytes: function(bytes) {
-    if (bytes === null || bytes === undefined) return '未知';
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
-  },
-
-  // freshFile 是剛選好、還沒上傳完成前手邊就有的 File 物件:能直接讀 size/尺寸,
-  // 不用等上傳完再回頭打 API 查,使用者體感比較快。舊資料(重新整理後)才需要
-  // 用 storage.list() 查檔案大小、用 Image() load 網址查圖片尺寸。
-  loadActivityInfo: async function(url, isPdf, freshFile) {
-    const panel = document.getElementById('admin-activity-info-panel');
-    if (!panel) return;
-
-    const marker = '/storage/v1/object/public/announcements/';
-    const idx = url.indexOf(marker);
-    const path = idx === -1 ? '' : decodeURIComponent(url.slice(idx + marker.length));
-    const fileNameOnly = path.split('/').pop() || '';
-    const originalName = (fileNameOnly.match(/^\d+_(.+)$/) || [null, fileNameOnly])[1];
-
-    let size = freshFile ? freshFile.size : null;
-    if (size === null && path) {
-      const folder = path.substring(0, path.lastIndexOf('/'));
-      const { data } = await supabaseClient.storage.from('announcements').list(folder, { search: fileNameOnly });
-      const match = data && data.find(f => f.name === fileNameOnly);
-      if (match && match.metadata) size = match.metadata.size;
-    }
-
-    let dimsLine = '';
-    if (!isPdf) {
-      const dims = await new Promise(resolve => {
-        const img = new Image();
-        img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-        img.onerror = () => resolve(null);
-        img.src = freshFile ? URL.createObjectURL(freshFile) : url;
-      });
-      if (dims) dimsLine = `<div>尺寸:${dims.w} x ${dims.h} px</div>`;
-    }
-
-    // 非同步查完才寫入,如果使用者這期間換了檔案(panel 已被換掉),就不要寫舊資料進去。
-    if (document.getElementById('admin-activity-info-panel') === panel) {
-      panel.innerHTML = `<div>檔名:${originalName || '(未知)'}</div>${dimsLine}<div>檔案大小:${this.formatBytes(size)}</div>`;
-    }
-  },
-
-  // 舊檔案盡量清掉,失敗也不擋流程(例如舊值本來就不是這個 bucket 的檔案)。
   deleteActivityStorageFile: async function(url) {
-    if (!url) return;
     const marker = '/storage/v1/object/public/announcements/';
     const idx = url.indexOf(marker);
     if (idx === -1) return;
@@ -1412,44 +1466,38 @@ const AdminSystem = {
     await supabaseClient.storage.from('announcements').remove([path]);
   },
 
-  uploadActivityFile: async function(input) {
-    const file = input.files[0];
-    if (!file) return;
+  uploadActivityFiles: async function(input) {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
     const status = document.getElementById('admin-activity-upload-status');
-    const isPdf = file.type === 'application/pdf';
-    const isImage = file.type.startsWith('image/');
-    if (!isPdf && !isImage) {
-      status.textContent = '❌ 只能上傳圖片或 PDF';
-      input.value = '';
-      return;
+
+    for (const file of files) {
+      const isPdf = file.type === 'application/pdf';
+      const isImage = file.type.startsWith('image/');
+      if (!isPdf && !isImage) { status.textContent = `❌ ${file.name} 不是圖片或 PDF,已略過`; continue; }
+
+      status.textContent = `上傳中...(${file.name})`;
+      const ext = isPdf ? 'pdf' : (file.name.split('.').pop() || 'png');
+      // key 只用時間戳+亂數,不放原始檔名,避免中文/特殊字元被 Storage 判定成不合法的 key。
+      const path = `activity/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error: uploadError } = await supabaseClient.storage.from('announcements').upload(path, file, { cacheControl: '3600', upsert: false });
+      if (uploadError) { status.textContent = `❌ ${file.name} 上傳失敗:${uploadError.message}`; continue; }
+
+      const { data } = supabaseClient.storage.from('announcements').getPublicUrl(path);
+      this.activityUrls.push(data.publicUrl);
+      this.renderActivityPreview();
     }
 
-    status.textContent = '上傳中...';
-    const ext = isPdf ? 'pdf' : (file.name.split('.').pop() || 'png');
-    const safeName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9一-龥_-]/g, '_').slice(0, 60) || 'file';
-    const path = `activity/${Date.now()}_${safeName}.${ext}`;
-
-    const { error: uploadError } = await supabaseClient.storage.from('announcements').upload(path, file, { cacheControl: '3600', upsert: false });
     input.value = '';
-    if (uploadError) {
-      status.textContent = '❌ 上傳失敗:' + uploadError.message;
-      return;
-    }
-
-    const { data } = supabaseClient.storage.from('announcements').getPublicUrl(path);
-    const oldUrl = document.getElementById('admin-set-url').value;
-    document.getElementById('admin-set-url').value = data.publicUrl;
-    this.renderActivityPreview(data.publicUrl, file);
-    status.textContent = '✅ 已上傳,記得按下方「儲存設定並同步」';
-    await this.deleteActivityStorageFile(oldUrl);
+    status.textContent = '✅ 上傳完成,記得按下方「儲存設定並同步」';
   },
 
-  removeActivityFile: async function() {
-    const oldUrl = document.getElementById('admin-set-url').value;
-    document.getElementById('admin-set-url').value = '';
-    this.renderActivityPreview('');
+  removeActivityUrl: async function(index) {
+    const [removed] = this.activityUrls.splice(index, 1);
+    this.renderActivityPreview();
     document.getElementById('admin-activity-upload-status').textContent = '已移除,記得按下方「儲存設定並同步」';
-    await this.deleteActivityStorageFile(oldUrl);
+    await this.deleteActivityStorageFile(removed);
   },
 
   saveSettings: async function() {
@@ -1460,7 +1508,7 @@ const AdminSystem = {
       title: document.getElementById('admin-set-title').value,
       version: document.getElementById('admin-set-version').value,
       notice: document.getElementById('admin-set-notice').value,
-      activity_url: document.getElementById('admin-set-url').value,
+      activity_urls: this.activityUrls,
       email: document.getElementById('admin-set-email').value,
     }).eq('id', 1);
 

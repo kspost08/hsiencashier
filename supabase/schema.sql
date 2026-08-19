@@ -90,7 +90,7 @@ create table if not exists settings (
   title text,
   version text,
   notice text,
-  activity_url text,
+  activity_urls text[] default '{}',  -- 攤位活動公告圖片/PDF,存 Supabase Storage 的 public URL,可多張
   email text,
   check (id = 1)
 );
