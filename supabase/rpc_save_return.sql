@@ -61,11 +61,11 @@ begin
      ticket_id, product_name, unit_price, qty, total_amount, reduction_val, fee_total, account)
   select
     v_return_id, p_ref_order_ref, v_alloc_date, v_alloc_activity, v_alloc_branch,
-    item->>'ticket_id', item->>'product_name',
-    (item->>'unit_price')::numeric, (item->>'qty')::numeric, (item->>'total_amount')::numeric,
-    coalesce((item->>'reduction_val')::numeric, 0), coalesce((item->>'fee_total')::numeric, 0),
+    elem->>'ticket_id', elem->>'product_name',
+    (elem->>'unit_price')::numeric, (elem->>'qty')::numeric, (elem->>'total_amount')::numeric,
+    coalesce((elem->>'reduction_val')::numeric, 0), coalesce((elem->>'fee_total')::numeric, 0),
     v_account
-  from jsonb_array_elements(p_items) as item;
+  from jsonb_array_elements(p_items) as elem;
 
   -- 4) 把歸還數量加回原活動地點的庫存(找不到對應地點就跳過,不擋歸票)
   select id into v_location_id from locations where name = v_alloc_activity;
