@@ -491,6 +491,7 @@
           </div>
           <div style="display:flex; gap: var(--sp-2);">
             <input type="text" id="alloc-lookup-ref" class="admin-input" placeholder="輸入配票單號" style="flex:1; margin:0;" onkeydown="if(event.key==='Enter') AdminSystem.lookupAllocationOrder()">
+            <button class="admin-btn admin-btn-sm admin-btn-outline" onclick="AdminSystem.clearAllocLookup()" title="清除查詢"><i class="fa-solid fa-xmark"></i></button>
             <button class="admin-btn admin-btn-sm" onclick="AdminSystem.lookupAllocationOrder()"><i class="fa-solid fa-magnifying-glass"></i> 查詢</button>
           </div>
           <div id="alloc-lookup-result" style="margin-top: var(--sp-3);"></div>
@@ -2315,6 +2316,12 @@ const AdminSystem = {
   // allocation_records 現在由 allocation.html(配票單位專用頁面)寫入,這裡只查詢/加入排程。
   allocationLookupRows: [],
 
+  clearAllocLookup: function() {
+    document.getElementById('alloc-lookup-ref').value = '';
+    document.getElementById('alloc-lookup-result').innerHTML = '';
+    this.allocationLookupRows = [];
+  },
+
   lookupAllocationOrder: async function() {
     const orderRef = document.getElementById('alloc-lookup-ref').value.trim();
     if (!orderRef) { alert("請先輸入配票單號!"); return; }
@@ -2603,16 +2610,19 @@ const ReturnSystem = {
     }
   },
 
+  // 只列出「已加入排程」的配票單(added_to_schedule_at 不為空)——還沒加入排程的單,
+  // 該活動地點根本還沒有這批庫存,選來歸票會是操作程序錯誤。
   loadAllocOrders: async function() {
     const sel = document.getElementById('returnOrderSelect');
     sel.innerHTML = '<option value="">讀取中...</option>';
 
     let q = supabaseClient.from('allocation_records')
       .select('order_ref,branch,activity_name,scheduled_date')
+      .not('added_to_schedule_at', 'is', null)
       .order('scheduled_date', { ascending: false }).limit(500);
     if (myUser.role !== 'ADMIN') {
       // STAFF 現場歸票,只能看到自己登入攤位(activity_name)的配票單,避免手滑選到別的攤位
-      // 導致庫存被加回錯的地點(save_return_order RPC 是照配票單自己的活動地點加庫存,
+      // 導致庫存被扣錯地點(save_return_order RPC 是照配票單自己的活動地點扣庫存,
       // 不是照登入攤位,這裡純粹是防呆,擋在選單這一關)。
       q = q.eq('branch', myUser.branchName).eq('activity_name', myUser.location);
     } else {
