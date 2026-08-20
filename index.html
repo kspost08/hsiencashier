@@ -2784,7 +2784,7 @@ const ReturnSystem = {
       return;
     }
 
-    const stockNote = data.stock_updated ? '' : '\n⚠️ 找不到對應的活動地點庫存，這批票品的庫存沒有自動加回，請手動確認。';
+    const stockNote = data.stock_updated ? '' : '\n⚠️ 找不到對應的活動地點庫存，這批票品的庫存沒有自動扣除，請手動確認。';
     alert(`✅ 歸票成功!\n系統已產生歸票單號:${data.return_order_id}${stockNote}`);
 
     this.cartItems = [];

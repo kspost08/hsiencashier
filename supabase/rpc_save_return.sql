@@ -1,11 +1,13 @@
 -- 歸票 RPC,取代原本 Apps Script 版「弦弦歸票計算機」的 saveReturn()。
 -- legacy 是現場清點退回票品時,把整批品項寫入 Return_Master 分頁(單純紀錄/日誌)。
 --
--- 這支 function 除了寫 return_records 當日誌/對帳用,還會把歸還數量加回原配票單
--- 指定的活動地點(activity_name 對應 locations.name)的 product_stock——歸還=庫存+1,
--- 不分天/分人拆算,單純把票品還給原本的攤位庫存。找不到對應地點(activity_name 沒有
--- 建過 locations,或票號還沒在「商品維護」建立過)就跳過庫存更新,但 return_records
--- 照樣寫入,不擋歸票流程(回傳 stock_updated:false 讓前端知會使用者)。
+-- 這支 function 除了寫 return_records 當日誌/對帳用,還會把歸還數量從原配票單
+-- 指定的活動地點(activity_name 對應 locations.name)的 product_stock 扣掉——歸還=庫存-1,
+-- 因為歸票代表這批票品離開該活動地點、不再屬於那個攤位的庫存了。不分天/分人拆算,
+-- 找不到對應地點(activity_name 沒有建過 locations,或票號還沒在「商品維護」建立過)
+-- 就跳過庫存更新,但 return_records 照樣寫入,不擋歸票流程(回傳 stock_updated:false
+-- 讓前端知會使用者)。歸還數量若超過該地點目前的庫存,扣完允許變成負數,不做防呆攔阻,
+-- 當作清點對帳時的異常訊號。
 --
 -- account/branch/role 不接受前端傳入,一律用 auth.uid() 查 profiles 取得,
 -- 避免前端偽造權限(同 save_order / refund_order 的原則)。
@@ -67,7 +69,7 @@ begin
     v_account
   from jsonb_array_elements(p_items) as elem;
 
-  -- 4) 把歸還數量加回原活動地點的庫存(找不到對應地點就跳過,不擋歸票)
+  -- 4) 把歸還數量從原活動地點的庫存扣掉(找不到對應地點就跳過,不擋歸票)
   select id into v_location_id from locations where name = v_alloc_activity;
 
   if v_location_id is not null then
@@ -83,12 +85,12 @@ begin
         end if;
 
         insert into product_stock (product_id, location_id, quantity)
-          values (item->>'ticket_id', v_location_id, (item->>'qty')::int)
+          values (item->>'ticket_id', v_location_id, -(item->>'qty')::int)
           on conflict (product_id, location_id)
           do update set quantity = product_stock.quantity + excluded.quantity;
 
         insert into stock_logs (product_id, qty, account, location_id)
-          values (item->>'ticket_id', (item->>'qty')::int, v_account, v_location_id);
+          values (item->>'ticket_id', -(item->>'qty')::int, v_account, v_location_id);
       end if;
     end loop;
   end if;
