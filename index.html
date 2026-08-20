@@ -502,12 +502,13 @@
           <div class="admin-card-header">
             <h3><i class="fa-solid fa-box"></i> 清點對帳匯出<span class="info-tip info-tip-down" tabindex="0" data-tip="依配票單號比對「配票數量」對上「歸還數量」，吻合就是這張單的票品已全數歸還，有落差代表還有票品尚未歸還(可能已售出、遺失或尚未清點)。銷售紀錄本身沒有存配票單號，無法精準拆分到單一配票單，所以這裡不列售出欄位。">ⓘ</span></h3>
           </div>
-          <p class="admin-note">選擇配票單號後匯出 Excel，內容是該單所有票號的配票/歸還數量比對，以及是否吻合。STAFF 只能選自己支局的配票單，ADMIN 可以看全部支局。</p>
+          <p class="admin-note">選擇配票單號後,清點狀態會直接顯示在下方,需要留存或交接時再按「產生對帳匯出」下載 Excel。STAFF 只能選自己支局的配票單，ADMIN 可以看全部支局。</p>
           <div style="display:flex; gap: var(--sp-2); align-items:center; flex-wrap:wrap;">
             <select id="logs-branch-filter" class="admin-select" style="width:200px; margin:0; display:none;" onchange="AdminSystem.loadLogsOrderOptions()"></select>
-            <select id="logs-order-ref" class="admin-select" style="flex:1; max-width:340px; margin:0;"><option value="">- 請選擇配票單號 -</option></select>
+            <select id="logs-order-ref" class="admin-select" style="flex:1; max-width:340px; margin:0;" onchange="AdminSystem.previewReconciliation()"><option value="">- 請選擇配票單號 -</option></select>
             <button class="admin-btn admin-btn-sm" id="logs-export-btn" onclick="AdminSystem.exportReconciliation()"><i class="fa-solid fa-file-excel"></i> 產生對帳匯出</button>
           </div>
+          <div id="logs-preview-result" style="margin-top: var(--sp-3);"></div>
           <div id="logs-export-result" class="section-sub-label" style="margin-top: var(--sp-2);"></div>
         </div>
       </div>
@@ -2424,17 +2425,13 @@ const AdminSystem = {
 
     sel.innerHTML = '<option value="">- 請選擇配票單號 -</option>' +
       orders.map(o => `<option value="${o.order_ref}">[${o.order_ref}] ${o.scheduled_date} ${o.branch} (${o.activity_name || ''})</option>`).join('');
+
+    document.getElementById('logs-preview-result').innerHTML = '';
+    document.getElementById('logs-export-result').textContent = '';
   },
 
-  exportReconciliation: async function() {
-    const orderRef = document.getElementById('logs-order-ref').value;
-    if (!orderRef) { alert("⚠️ 請先選擇配票單號!"); return; }
-
-    const btn = document.getElementById('logs-export-btn');
-    const resultEl = document.getElementById('logs-export-result');
-    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 統計中..."; btn.disabled = true;
-    resultEl.textContent = "";
-
+  // 查配票/歸還數量並依票號比對,preview 跟 export 共用同一份計算結果,避免兩處邏輯兜不起來。
+  computeReconciliation: async function(orderRef) {
     const [allocRes, returnRes] = await Promise.all([
       supabaseClient.from('allocation_records').select('ticket_id,product_name,unit_price,qty,branch').eq('order_ref', orderRef),
       supabaseClient.from('return_records').select('ticket_id,product_name,unit_price,qty').eq('ref_order_ref', orderRef)
@@ -2442,15 +2439,10 @@ const AdminSystem = {
 
     if (allocRes.error || returnRes.error) {
       console.error(allocRes.error || returnRes.error);
-      btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
-      alert("❌ 讀取資料失敗，請重新整理頁面");
-      return;
+      return { error: true, message: '讀取資料失敗，請重新整理頁面' };
     }
-
     if (!allocRes.data || allocRes.data.length === 0) {
-      btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
-      resultEl.textContent = "查無此配票單號的資料。";
-      return;
+      return { notFound: true, message: '查無此配票單號的資料。' };
     }
 
     const branch = allocRes.data[0].branch || '';
@@ -2474,7 +2466,54 @@ const AdminSystem = {
       row.unit_price = row.unit_price || Number(r.unit_price) || 0;
     });
 
-    const ticketIds = Object.keys(rowsByTicket).sort();
+    return { branch, rowsByTicket, ticketIds: Object.keys(rowsByTicket).sort() };
+  },
+
+  // 選單號當下就把清點狀態顯示在頁面上,不用先匯出 Excel 才看得到有沒有落差。
+  previewReconciliation: async function() {
+    const orderRef = document.getElementById('logs-order-ref').value;
+    const resultEl = document.getElementById('logs-preview-result');
+    document.getElementById('logs-export-result').textContent = '';
+
+    if (!orderRef) { resultEl.innerHTML = ''; return; }
+    resultEl.innerHTML = '<div style="text-align:center; padding:20px;"><i class="fa-solid fa-spinner fa-spin"></i> 查詢中...</div>';
+
+    const result = await this.computeReconciliation(orderRef);
+    if (result.error || result.notFound) { resultEl.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> ${result.message}`; return; }
+
+    const { rowsByTicket, ticketIds } = result;
+    let mismatchCount = 0;
+    let html = '<table class="admin-table"><thead><tr><th>票號</th><th>品名</th><th class="text-right">單價</th><th class="text-center">配票數量</th><th class="text-center">歸還數量</th><th class="text-center">落差</th><th>狀態</th></tr></thead><tbody>';
+    ticketIds.forEach(ticketId => {
+      const row = rowsByTicket[ticketId];
+      const gap = row.allocated - row.returned;
+      let statusCell;
+      if (gap === 0) statusCell = '<span class="text-primary">吻合(全數歸還)</span>';
+      else if (gap > 0) { statusCell = `<span class="text-danger">尚有 ${gap} 件未歸還</span>`; mismatchCount++; }
+      else { statusCell = `<span class="text-danger">多出 ${-gap} 件(請查核)</span>`; mismatchCount++; }
+      html += `<tr><td>${ticketId}</td><td>${row.product_name}</td><td class="text-right">$${row.unit_price}</td><td class="text-center">${row.allocated}</td><td class="text-center">${row.returned}</td><td class="text-center">${gap}</td><td>${statusCell}</td></tr>`;
+    });
+    html += '</tbody></table>';
+
+    resultEl.innerHTML = `<p class="admin-note"><i class="fa-solid fa-circle-info"></i> 共 ${ticketIds.length} 種票號，其中 ${mismatchCount} 項有落差。</p>` + html;
+  },
+
+  exportReconciliation: async function() {
+    const orderRef = document.getElementById('logs-order-ref').value;
+    if (!orderRef) { alert("⚠️ 請先選擇配票單號!"); return; }
+
+    const btn = document.getElementById('logs-export-btn');
+    const resultEl = document.getElementById('logs-export-result');
+    btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> 統計中..."; btn.disabled = true;
+    resultEl.textContent = "";
+
+    const result = await this.computeReconciliation(orderRef);
+    btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
+
+    if (result.error) { alert("❌ " + result.message); return; }
+    if (result.notFound) { resultEl.textContent = result.message; return; }
+
+    const { branch, rowsByTicket, ticketIds } = result;
 
     let mismatchCount = 0;
     const wsData = [
@@ -2499,8 +2538,7 @@ const AdminSystem = {
     XLSX.utils.book_append_sheet(wb, ws, "清點對帳");
     XLSX.writeFile(wb, `清點對帳_${orderRef}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 
-    btn.innerHTML = "<i class='fa-solid fa-file-excel'></i> 產生對帳匯出"; btn.disabled = false;
-    resultEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已匯出，共 ${ticketIds.length} 種票號，其中 ${mismatchCount} 項有落差。`;
+    resultEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> 已下載 Excel。`;
   }
 
 };
