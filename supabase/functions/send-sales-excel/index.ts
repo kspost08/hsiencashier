@@ -1,4 +1,5 @@
-// Edge Function:把銷售紀錄查詢結果產生 .xlsx 並用 Resend 寄給 settings.email。
+// Edge Function:把銷售紀錄查詢結果產生 .xlsx 並用 Resend 寄給指定的收件 Email
+// (前端每次寄送都會先跳提示詢問,body.email 沒帶或空字串才退回用 settings.email 當預設)。
 // 取代原本 Code.gs 的 sendExcelToEmail(keyword, dateStr, branchName, locationFilter)。
 //
 // RESEND_API_KEY 從環境變數讀(要在 Supabase Dashboard → Edge Functions → Secrets 手動設定),
@@ -85,9 +86,18 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ status: "ERROR", message: "查無資料,無法寄送" });
   }
 
-  const { data: settings } = await callerClient.from("settings").select("email").eq("id", 1).single();
-  if (!settings || !settings.email) {
-    return jsonResponse({ status: "ERROR", message: "尚未設定報表接收 Email(系統設定)" });
+  const requestedEmail = typeof body.email === "string" ? body.email.trim() : "";
+  if (requestedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requestedEmail)) {
+    return jsonResponse({ status: "ERROR", message: "收件 Email 格式不正確" });
+  }
+
+  let recipientEmail = requestedEmail;
+  if (!recipientEmail) {
+    const { data: settings } = await callerClient.from("settings").select("email").eq("id", 1).single();
+    recipientEmail = settings?.email || "";
+  }
+  if (!recipientEmail) {
+    return jsonResponse({ status: "ERROR", message: "尚未提供收件 Email，也沒有系統預設 Email(系統設定)" });
   }
 
   const { data: locs } = await callerClient.from("locations").select("id,name");
@@ -123,7 +133,7 @@ Deno.serve(async (req: Request) => {
     },
     body: JSON.stringify({
       from: "onboarding@resend.dev",
-      to: settings.email,
+      to: recipientEmail,
       subject: `📊 銷售報表匯出: ${date || "全部"}`,
       text: `資料筆數:${rows.length} 筆`,
       attachments: [{ filename: fileName, content: xlsxBase64 }],

@@ -1419,6 +1419,14 @@
 
   async function handleExcelEmail() {
     if (lastRecords.length === 0) return;
+
+    const lastEmail = localStorage.getItem('pos_report_email') || '';
+    const email = prompt('請輸入收件 Email:', lastEmail);
+    if (email === null) return; // 使用者取消
+    const trimmedEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { alert("❌ Email 格式不正確"); return; }
+    localStorage.setItem('pos_report_email', trimmedEmail);
+
     const btn = document.getElementById('excelEmailBtn'); btn.innerHTML = "<i class='fa-solid fa-envelope'></i> 寄送中..."; btn.disabled = true;
 
     const { data, error } = await supabaseClient.functions.invoke('send-sales-excel', {
@@ -1427,6 +1435,7 @@
         date: document.getElementById('searchDate').value,
         locationId: parseInt(document.getElementById('searchLocation').value) || null,
         limit: parseInt(document.getElementById('searchLimit').value) || 20,
+        email: trimmedEmail,
       }
     });
 
@@ -1434,7 +1443,7 @@
 
     if (error) { console.error(error); alert("❌ 寄送失敗，請重新整理頁面"); return; }
     if (data.status === 'ERROR') { alert("❌ " + data.message); return; }
-    showToast("<i class='fa-solid fa-circle-check'></i> 報表已寄出");
+    showToast("<i class='fa-solid fa-circle-check'></i> 報表已寄出至 " + trimmedEmail);
   }
 
   function loadStock() {
