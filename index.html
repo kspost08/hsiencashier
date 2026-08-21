@@ -260,10 +260,10 @@
 <div id="location-overlay" style="display:none;">
   <h2 class="login-title" style="font-size: var(--fs-2xl);"><i class="fa-solid fa-location-dot"></i> 選擇執勤攤位</h2>
   <div class="login-box">
-    <select id="location-select" style="font-size: var(--fs-lg); padding: var(--sp-4); margin-bottom: var(--sp-5); text-align:center;">
+    <select id="location-select" style="font-size: var(--fs-lg); padding: var(--sp-4); margin-bottom: var(--sp-5); text-align:center;" onkeydown="if(event.key==='Enter') confirmLocation()">
         <option value="">載入中...</option>
     </select>
-    <button class="btn-save" onclick="confirmLocation()">確認進入收銀</button>
+    <button class="btn-save" onclick="confirmLocation()">確認進入收銀<span style="opacity:.7; font-size:.75em; margin-left:6px;">ENTER</span></button>
   </div>
 </div>
 
