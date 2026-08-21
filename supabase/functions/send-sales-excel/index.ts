@@ -132,7 +132,7 @@ Deno.serve(async (req: Request) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "onboarding@resend.dev",
+      from: "noreply@kspost08.tw",
       to: recipientEmail,
       subject: `📊 銷售報表匯出: ${date || "全部"}`,
       text: `資料筆數:${rows.length} 筆`,
