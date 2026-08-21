@@ -134,6 +134,13 @@
     .btn-save { width: 100%; padding: var(--sp-3); background: var(--primary); color: white; border-radius: var(--radius-md); font-size: var(--fs-xl); }
     .btn-save:hover { background: var(--primary-hover); }
 
+    /* 選擇執勤攤位:每個攤位一顆按鈕,滑鼠點選即登入;方向鍵在按鈕間移動焦點,Enter 靠瀏覽器對
+       focus 中的 button 原生行為觸發 click,不用另外攔截 Enter。 */
+    .location-btn-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .location-btn { width: 100%; padding: var(--sp-4); background: #fafafa; border: 2px solid #eceff1; border-radius: var(--radius-md); font-size: var(--fs-lg); font-family: inherit; font-weight: 600; color: var(--text-main); cursor: pointer; text-align: center; transition: background 0.15s, border-color 0.15s; }
+    .location-btn:hover { background: #eceff1; }
+    .location-btn:focus { outline: none; border-color: var(--primary); background: #e8edf0; box-shadow: 0 0 0 3px rgba(84,110,122,0.15); }
+
     /* 收銀畫面購物車表格的欄寬比例(原本引用但未定義的 class) */
     .scan-table .col-num { width: 34px; }
     .scan-table .col-id { width: 90px; }
@@ -260,10 +267,7 @@
 <div id="location-overlay" style="display:none;">
   <h2 class="login-title" style="font-size: var(--fs-2xl);"><i class="fa-solid fa-location-dot"></i> 選擇執勤攤位</h2>
   <div class="login-box">
-    <select id="location-select" style="font-size: var(--fs-lg); padding: var(--sp-4); margin-bottom: var(--sp-5); text-align:center;" onkeydown="if(event.key==='Enter') confirmLocation()">
-        <option value="">載入中...</option>
-    </select>
-    <button class="btn-save" onclick="confirmLocation()">確認進入收銀<span style="opacity:.7; font-size:.75em; margin-left:6px;">ENTER</span></button>
+    <div id="location-btn-list" class="location-btn-list" onkeydown="handleLocationBtnKeydown(event)">載入中...</div>
   </div>
 </div>
 
@@ -813,13 +817,32 @@
 
   function showLocationOverlay() {
     document.getElementById('login-overlay').style.display = 'none';
-    const locSelect = document.getElementById('location-select');
+    const listEl = document.getElementById('location-btn-list');
     if (myUser.locationList && myUser.locationList.length > 0) {
-      locSelect.innerHTML = myUser.locationList.map(loc => `<option value="${loc.id}">${loc.name}</option>`).join('');
+      listEl.innerHTML = myUser.locationList.map(loc =>
+        `<button type="button" class="location-btn" onclick="confirmLocation(${loc.id}, this.textContent)">${loc.name}</button>`
+      ).join('');
     } else {
-      locSelect.innerHTML = `<option value="">尚未設定攤位清單</option>`;
+      listEl.innerHTML = `<p class="admin-note" style="text-align:center;">尚未設定攤位清單</p>`;
     }
     document.getElementById('location-overlay').style.display = 'flex';
+    const firstBtn = listEl.querySelector('.location-btn');
+    if (firstBtn) firstBtn.focus();
+  }
+
+  // 方向鍵在攤位按鈕間移動焦點(上/左=往前,下/右=往後,循環),Enter 交給瀏覽器對
+  // focus 中的 button 的原生行為觸發 click,不用另外處理。
+  function handleLocationBtnKeydown(e) {
+    if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
+    e.preventDefault();
+    const buttons = Array.from(document.querySelectorAll('#location-btn-list .location-btn'));
+    if (buttons.length === 0) return;
+    const idx = buttons.indexOf(document.activeElement);
+    const forward = (e.key === 'ArrowDown' || e.key === 'ArrowRight');
+    const nextIdx = idx === -1
+      ? (forward ? 0 : buttons.length - 1)
+      : (forward ? (idx + 1) % buttons.length : (idx - 1 + buttons.length) % buttons.length);
+    buttons[nextIdx].focus();
   }
 
   async function handleLogin() {
@@ -876,12 +899,10 @@
       showLocationOverlay();
   }
 
-  function confirmLocation() {
-      const select = document.getElementById('location-select');
-      const id = parseInt(select.value);
+  function confirmLocation(id, name) {
       if (!id) return;
       myUser.locationId = id;
-      myUser.location = select.selectedOptions[0].textContent;
+      myUser.location = name;
       localStorage.setItem('pos_session', JSON.stringify(myUser));
       document.getElementById('location-overlay').style.display = 'none';
       applyLoginState(myUser);
