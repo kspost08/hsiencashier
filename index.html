@@ -242,12 +242,12 @@
   <h2 id="sysTitleDisplay" class="login-title">弦弦收銀機</h2>
   <div class="login-box">
     <input type="text" id="login-acc" placeholder="請輸入員工編號">
-    <input type="password" id="login-pwd" placeholder="密碼">
+    <input type="password" id="login-pwd" placeholder="密碼" onkeydown="if(event.key==='Enter') handleLogin()">
     <div class="remember-row">
         <input type="checkbox" id="remember-me">
         <label for="remember-me">記住帳號密碼</label>
     </div>
-    <button class="btn-save" id="login-btn" onclick="handleLogin()">登入系統</button>
+    <button class="btn-save" id="login-btn" onclick="handleLogin()">登入系統<span style="opacity:.7; font-size:.75em; margin-left:6px;">ENTER</span></button>
     <div id="login-msg"></div>
   </div>
   <div class="login-footnote">
@@ -829,6 +829,7 @@
       if (!acc || !pwd) return;
 
       const btn = document.getElementById('login-btn');
+      const idleLabel = '登入系統<span style="opacity:.7; font-size:.75em; margin-left:6px;">ENTER</span>';
       btn.innerHTML = "驗證中..."; btn.disabled = true;
 
       const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
@@ -837,7 +838,7 @@
 
       if (authError) {
         console.error(authError);
-        btn.innerHTML = "登入系統"; btn.disabled = false;
+        btn.innerHTML = idleLabel; btn.disabled = false;
         document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號或密碼錯誤";
         return;
       }
@@ -848,7 +849,7 @@
       if (profileError || !profile) {
         console.error(profileError);
         try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
-        btn.innerHTML = "登入系統"; btn.disabled = false;
+        btn.innerHTML = idleLabel; btn.disabled = false;
         document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 帳號設定異常，請聯絡管理員";
         return;
       }
@@ -856,14 +857,14 @@
       // ALLOC(配票單位)帳號不進收銀機主畫面,請改用 allocation.html。
       if (profile.role === 'ALLOC') {
         try { await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
-        btn.innerHTML = "登入系統"; btn.disabled = false;
+        btn.innerHTML = idleLabel; btn.disabled = false;
         document.getElementById('login-msg').innerHTML = "<i class='fa-solid fa-circle-xmark'></i> 此帳號請改用配票專用頁面(allocation.html)登入";
         return;
       }
 
       const { data: locations } = await supabaseClient.from('locations').select('id,name').order('sort_order');
 
-      btn.innerHTML = "登入系統"; btn.disabled = false;
+      btn.innerHTML = idleLabel; btn.disabled = false;
 
       if (isRem) { localStorage.setItem('pos_acc', acc); localStorage.setItem('pos_pwd', pwd); }
       else { localStorage.removeItem('pos_acc'); localStorage.removeItem('pos_pwd'); }
